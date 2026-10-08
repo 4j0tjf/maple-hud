@@ -68,13 +68,19 @@
     return (n < 10 ? '0' : '') + n;
   }
 
-  // 1일 이상이면 "2일 03:12", 미만이면 "03:12:45"
-  function formatCountdown(ms) {
+  // 1일 이상이면 "2일 03:12", 미만이면 "03:12:45".
+  // withSeconds가 false면 1일 미만은 "3시간 12분"처럼 분 단위로 (남은 분은 올림)
+  function formatCountdown(ms, withSeconds) {
     var s = Math.max(0, Math.floor(ms / 1000));
     var d = Math.floor(s / 86400);
     var h = Math.floor((s % 86400) / 3600);
     var m = Math.floor((s % 3600) / 60);
     if (d > 0) return d + '일 ' + pad(h) + ':' + pad(m);
+    if (withSeconds === false) {
+      var total = Math.ceil(s / 60);
+      var hh = Math.floor(total / 60);
+      return hh > 0 ? hh + '시간 ' + pad(total % 60) + '분' : total + '분';
+    }
     return pad(h) + ':' + pad(m) + ':' + pad(s % 60);
   }
 

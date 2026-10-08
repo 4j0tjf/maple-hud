@@ -926,6 +926,12 @@ body {
   display: none;
 }
 
+/* 투명 창 뒤(바탕화면)는 흐리게 할 수 없으니 쓸모없는 GPU 작업을 하지 않는다 */
+.overlay #hud {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

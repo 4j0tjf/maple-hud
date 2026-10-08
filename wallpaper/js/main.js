@@ -291,9 +291,23 @@
     var afterReset = time.nextReset(time.RESET.DAILY, now) + scheduler.DATA_DELAY_MS + MIN;
     var at = Math.min(now + refreshMs(cfg), afterReset);
     syncTimer = setTimeout(function () {
-      if (state.paused) return;
+      // 보이지 않는 동안에는 호출하지 않고, 다시 보일 때 resume()이 처리한다
+      if (isIdle()) return;
       sync(false);
     }, Math.max(MIN, at - now));
+  }
+
+  // WE가 배경화면을 멈췄거나(전체 화면 게임 등) 창이 가려져 페이지가 숨겨진 상태
+  function isIdle() {
+    return state.paused || document.hidden;
+  }
+
+  function resume() {
+    if (isIdle()) return;
+    hud.tick(statusView(), Date.now());
+    if (state.syncing) return;
+    if (Date.now() - state.lastSync > refreshMs(config.get())) sync(false);
+    else scheduleNext();
   }
 
   /* ---------- 화면 ---------- */
@@ -332,6 +346,7 @@
 
   function statusView() {
     return {
+      showSeconds: config.get().showSeconds,
       notice: state.notice,
       demo: state.demo,
       syncing: state.syncing,
@@ -404,6 +419,8 @@
   }
 
   function init() {
+    // 한 달 넘게 안 쓴 캐시(지금은 표시하지 않는 캐릭터 등)를 정리한다
+    store.prune(31 * 24 * HOUR);
     if (!config.isWE()) config.loadBrowserSettings();
     config.loadUrlParams();
 
@@ -420,13 +437,14 @@
     config.onPause(function (paused) {
       state.paused = paused;
       hud.setPaused(paused);
-      if (!paused && !state.syncing && Date.now() - state.lastSync > refreshMs(config.get())) sync(false);
+      resume();
     });
+    document.addEventListener('visibilitychange', resume);
 
     window.addEventListener('resize', function () { hud.fitHeight(config.get()); });
 
     setInterval(function () {
-      if (state.paused) return;
+      if (isIdle()) return;
       var now = Date.now();
       var reset = time.lastReset(time.RESET.DAILY, now);
       if (reset !== lastDailyReset) {

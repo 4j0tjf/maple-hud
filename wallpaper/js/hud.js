@@ -256,15 +256,27 @@
     el.classList.toggle('at-end', el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
   }
 
+  // 같은 값이면 DOM을 건드리지 않는다 (매초 불필요한 스타일 계산·레이아웃 방지)
+  var lastText = {};
+  function setText(id, value) {
+    if (lastText[id] === value) return;
+    lastText[id] = value;
+    $(id).textContent = value;
+  }
+
   // 1초마다 갱신되는 부분 (시계, 초기화 카운트다운, 동기화 상태)
+  // 초 표시를 끄면 1분에 한 번만 값이 바뀌어서 화면도 그때만 다시 그린다
   function tick(view, now) {
+    var sec = view.showSeconds !== false;
     var clock = time.formatClock(now);
-    $('clock').innerHTML = '<span class="date">' + clock.date + '</span><b>' + clock.time + '</b><span class="sec">' + clock.seconds + '</span>';
+    setText('clock-date', clock.date);
+    setText('clock-time', clock.time);
+    setText('clock-sec', sec ? clock.seconds : '');
 
     var R = time.RESET;
-    $('reset-daily').textContent = time.formatCountdown(time.nextReset(R.DAILY, now) - now);
-    $('reset-boss').textContent = time.formatCountdown(time.nextReset(R.WEEKLY_THU, now) - now);
-    $('reset-weekly').textContent = time.formatCountdown(time.nextReset(R.WEEKLY_MON, now) - now);
+    setText('reset-daily', time.formatCountdown(time.nextReset(R.DAILY, now) - now, sec));
+    setText('reset-boss', time.formatCountdown(time.nextReset(R.WEEKLY_THU, now) - now, sec));
+    setText('reset-weekly', time.formatCountdown(time.nextReset(R.WEEKLY_MON, now) - now, sec));
 
     var sync = $('sync');
     sync.classList.toggle('busy', !!view.syncing);
@@ -275,7 +287,7 @@
     else if (view.lastSync) text = time.formatAgo(now - view.lastSync) + ' 동기화';
     else if (view.notice && view.notice.level === 'error') text = '동기화 실패';
     else text = '대기 중';
-    $('sync-text').textContent = text;
+    setText('sync-text', text);
   }
 
   function init(handlers) {

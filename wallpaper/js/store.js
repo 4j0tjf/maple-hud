@@ -57,12 +57,32 @@
     return entry;
   }
 
+  // { at } 시각이 maxAge보다 오래된 캐시 항목을 지운다
+  function prune(maxAge, now) {
+    if (!ls) return 0;
+    var limit = (now || Date.now()) - maxAge;
+    var stale = [];
+    try {
+      for (var i = 0; i < ls.length; i++) {
+        var k = ls.key(i);
+        if (!k || k.indexOf(PREFIX) !== 0) continue;
+        var entry = get(k.slice(PREFIX.length));
+        if (entry && typeof entry.at === 'number' && entry.at < limit) stale.push(k.slice(PREFIX.length));
+      }
+    } catch (e) {
+      return 0;
+    }
+    stale.forEach(remove);
+    return stale.length;
+  }
+
   root.MH = root.MH || {};
   root.MH.store = {
     get: get,
     set: set,
     remove: remove,
     getCached: getCached,
-    setCached: setCached
+    setCached: setCached,
+    prune: prune
   };
 })(typeof window !== 'undefined' ? window : globalThis);

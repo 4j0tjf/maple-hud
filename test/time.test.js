@@ -45,6 +45,13 @@ test('카운트다운 표시', () => {
   assert.equal(time.formatCountdown(-5), '00:00:00');
 });
 
+test('초 없이 분 단위 카운트다운 (남은 분은 올림)', () => {
+  assert.equal(time.formatCountdown((3 * 3600 + 12 * 60 + 45) * 1000, false), '3시간 13분');
+  assert.equal(time.formatCountdown((59 * 60 + 1) * 1000, false), '1시간 00분');
+  assert.equal(time.formatCountdown(30 * 1000, false), '1분');
+  assert.equal(time.formatCountdown(((2 * 24 + 3) * 3600) * 1000, false), '2일 03:00');
+});
+
 test('KST 시계 표시', () => {
   assert.deepEqual(time.formatClock(NOW), { date: '10.08 (목)', time: '21:34', seconds: '00' });
 });

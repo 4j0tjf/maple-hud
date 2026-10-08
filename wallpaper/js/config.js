@@ -26,6 +26,7 @@
     ['hidedone', 'hideDone', 'bool', false, { group: '표시', label: '완료한 항목 숨기기' }],
     ['collapsedone', 'collapseDone', 'bool', true, { group: '표시', label: '모두 완료한 캐릭터 접기' }],
     ['showavatar', 'showAvatar', 'bool', true, { group: '표시', label: '캐릭터 이미지·경험치 표시', data: true }],
+    ['showseconds', 'showSeconds', 'bool', true, { group: '표시', label: '시계·카운트다운을 초 단위로 표시 (끄면 화면 갱신이 1분에 한 번)' }],
     ['columns', 'columns', 'num', 1, { group: '배치', label: '열 개수', input: 'range', min: 1, max: 4 }],
     ['cardwidth', 'cardWidth', 'num', 400, { group: '배치', label: '카드 너비 (px)', input: 'range', min: 280, max: 720, step: 10 }],
     ['uiscale', 'scale', 'num', 100, { group: '배치', label: '크기 (%)', input: 'range', min: 50, max: 250, step: 5 }],

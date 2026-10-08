@@ -86,7 +86,9 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      // 맞춤법 검사 사전을 불러오지 않는다 (메모리 절약)
+      spellcheck: false
     }
   });
 

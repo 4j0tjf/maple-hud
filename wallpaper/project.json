@@ -111,6 +111,13 @@
 				"type" : "bool",
 				"value" : true
 			},
+			"showseconds" :
+			{
+				"order" : 204,
+				"text" : "[표시] 시계·카운트다운 초 단위 표시 (끄면 화면 갱신이 1분에 한 번)",
+				"type" : "bool",
+				"value" : true
+			},
 			"columns" :
 			{
 				"order" : 300,
