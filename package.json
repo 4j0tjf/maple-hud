@@ -1,0 +1,13 @@
+{
+  "name": "maple-hud",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MapleStory in-game scheduler HUD for Wallpaper Engine (NEXON Open API)",
+  "scripts": {
+    "test": "node --test",
+    "proxy": "node proxy/maple-hud-proxy.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

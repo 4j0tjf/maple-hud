@@ -1,0 +1,309 @@
+{
+	"title" : "Maple Scheduler HUD",
+	"description" : "넥슨 Open API로 메이플스토리 캐릭터들의 인게임 스케줄러(일일·주간·보스) 진행 상황을 배경화면 위에 반투명 HUD로 보여줍니다.",
+	"type" : "web",
+	"file" : "index.html",
+	"preview" : "preview.jpg",
+	"tags" : [ "Game", "Unspecified" ],
+	"general" :
+	{
+		"properties" :
+		{
+			"schemecolor" :
+			{
+				"order" : 0,
+				"text" : "ui_browse_properties_scheme_color",
+				"type" : "color",
+				"value" : "1 0.7098 0.2784"
+			},
+			"apikey" :
+			{
+				"order" : 100,
+				"text" : "[API] 넥슨 Open API 키",
+				"type" : "textinput",
+				"value" : ""
+			},
+			"characters" :
+			{
+				"order" : 101,
+				"text" : "[API] 캐릭터 이름 (쉼표로 구분, 비우면 계정에서 자동 선택)",
+				"type" : "textinput",
+				"value" : ""
+			},
+			"minlevel" :
+			{
+				"order" : 102,
+				"text" : "[API] 자동 선택 최소 레벨",
+				"type" : "slider",
+				"min" : 0,
+				"max" : 300,
+				"step" : 1,
+				"precision" : 0,
+				"fraction" : false,
+				"editable" : true,
+				"value" : 200
+			},
+			"maxchars" :
+			{
+				"order" : 103,
+				"text" : "[API] 자동 선택 최대 캐릭터 수",
+				"type" : "slider",
+				"min" : 1,
+				"max" : 20,
+				"step" : 1,
+				"precision" : 0,
+				"fraction" : false,
+				"editable" : true,
+				"value" : 8
+			},
+			"refreshmin" :
+			{
+				"order" : 104,
+				"text" : "[API] 갱신 주기 (분)",
+				"type" : "slider",
+				"min" : 5,
+				"max" : 180,
+				"step" : 1,
+				"precision" : 0,
+				"fraction" : false,
+				"editable" : true,
+				"value" : 15
+			},
+			"apibase" :
+			{
+				"order" : 105,
+				"text" : "[API] 프록시 주소 (보통 비워두세요)",
+				"type" : "textinput",
+				"value" : ""
+			},
+			"demomode" :
+			{
+				"order" : 106,
+				"text" : "[API] 데모 데이터로 보기",
+				"type" : "bool",
+				"value" : false
+			},
+			"showall" :
+			{
+				"order" : 200,
+				"text" : "[표시] 스케줄러에 등록 안 된 항목도 표시",
+				"type" : "bool",
+				"value" : false
+			},
+			"hidedone" :
+			{
+				"order" : 201,
+				"text" : "[표시] 완료한 항목 숨기기",
+				"type" : "bool",
+				"value" : false
+			},
+			"collapsedone" :
+			{
+				"order" : 202,
+				"text" : "[표시] 모두 완료한 캐릭터 접기",
+				"type" : "bool",
+				"value" : true
+			},
+			"showavatar" :
+			{
+				"order" : 203,
+				"text" : "[표시] 캐릭터 이미지·경험치 표시",
+				"type" : "bool",
+				"value" : true
+			},
+			"columns" :
+			{
+				"order" : 300,
+				"text" : "[배치] 열 개수",
+				"type" : "slider",
+				"min" : 1,
+				"max" : 4,
+				"step" : 1,
+				"precision" : 0,
+				"fraction" : false,
+				"editable" : true,
+				"value" : 1
+			},
+			"cardwidth" :
+			{
+				"order" : 301,
+				"text" : "[배치] 카드 너비 (px)",
+				"type" : "slider",
+				"min" : 280,
+				"max" : 720,
+				"step" : 10,
+				"precision" : 0,
+				"fraction" : false,
+				"editable" : true,
+				"value" : 400
+			},
+			"uiscale" :
+			{
+				"order" : 302,
+				"text" : "[배치] 크기 (%)",
+				"type" : "slider",
+				"min" : 50,
+				"max" : 250,
+				"step" : 5,
+				"precision" : 0,
+				"fraction" : false,
+				"editable" : true,
+				"value" : 100
+			},
+			"alignx" :
+			{
+				"order" : 303,
+				"text" : "[배치] 가로 위치",
+				"type" : "combo",
+				"options" :
+				[
+					{ "label" : "왼쪽", "value" : "left" },
+					{ "label" : "가운데", "value" : "center" },
+					{ "label" : "오른쪽", "value" : "right" }
+				],
+				"value" : "right"
+			},
+			"aligny" :
+			{
+				"order" : 304,
+				"text" : "[배치] 세로 위치",
+				"type" : "combo",
+				"options" :
+				[
+					{ "label" : "위", "value" : "top" },
+					{ "label" : "가운데", "value" : "center" },
+					{ "label" : "아래", "value" : "bottom" }
+				],
+				"value" : "top"
+			},
+			"offsetx" :
+			{
+				"order" : 305,
+				"text" : "[배치] 가로 여백 (px)",
+				"type" : "slider",
+				"min" : 0,
+				"max" : 600,
+				"step" : 2,
+				"precision" : 0,
+				"fraction" : false,
+				"editable" : true,
+				"value" : 48
+			},
+			"offsety" :
+			{
+				"order" : 306,
+				"text" : "[배치] 세로 여백 (px)",
+				"type" : "slider",
+				"min" : 0,
+				"max" : 600,
+				"step" : 2,
+				"precision" : 0,
+				"fraction" : false,
+				"editable" : true,
+				"value" : 48
+			},
+			"panelopacity" :
+			{
+				"order" : 400,
+				"text" : "[패널] 배경 불투명도 (%)",
+				"type" : "slider",
+				"min" : 0,
+				"max" : 100,
+				"step" : 1,
+				"precision" : 0,
+				"fraction" : false,
+				"editable" : true,
+				"value" : 55
+			},
+			"panelblur" :
+			{
+				"order" : 401,
+				"text" : "[패널] 뒤 배경 흐림 (px)",
+				"type" : "slider",
+				"min" : 0,
+				"max" : 40,
+				"step" : 1,
+				"precision" : 0,
+				"fraction" : false,
+				"editable" : true,
+				"value" : 14
+			},
+			"accentcolor" :
+			{
+				"order" : 402,
+				"text" : "[패널] 강조 색상",
+				"type" : "color",
+				"value" : "1 0.7098 0.2784"
+			},
+			"bgtype" :
+			{
+				"order" : 500,
+				"text" : "[배경] 종류",
+				"type" : "combo",
+				"options" :
+				[
+					{ "label" : "기본 그라데이션", "value" : "default" },
+					{ "label" : "이미지", "value" : "image" },
+					{ "label" : "동영상", "value" : "video" },
+					{ "label" : "단색", "value" : "color" }
+				],
+				"value" : "default"
+			},
+			"bgimage" :
+			{
+				"order" : 501,
+				"text" : "[배경] 이미지 파일",
+				"type" : "file",
+				"value" : ""
+			},
+			"bgvideo" :
+			{
+				"order" : 502,
+				"text" : "[배경] 동영상 파일 (webm 권장)",
+				"type" : "file",
+				"fileType" : "video",
+				"value" : ""
+			},
+			"bgurl" :
+			{
+				"order" : 503,
+				"text" : "[배경] 파일 경로 또는 URL 직접 입력 (위에서 선택 안 했을 때)",
+				"type" : "textinput",
+				"value" : ""
+			},
+			"bgfit" :
+			{
+				"order" : 504,
+				"text" : "[배경] 맞춤",
+				"type" : "combo",
+				"options" :
+				[
+					{ "label" : "화면 채우기 (잘림)", "value" : "cover" },
+					{ "label" : "전체 보이기", "value" : "contain" },
+					{ "label" : "늘이기", "value" : "fill" }
+				],
+				"value" : "cover"
+			},
+			"bgcolor" :
+			{
+				"order" : 505,
+				"text" : "[배경] 색상 (단색 / 여백)",
+				"type" : "color",
+				"value" : "0.0784 0.0941 0.1294"
+			},
+			"bgdim" :
+			{
+				"order" : 506,
+				"text" : "[배경] 어둡게 (%)",
+				"type" : "slider",
+				"min" : 0,
+				"max" : 90,
+				"step" : 1,
+				"precision" : 0,
+				"fraction" : false,
+				"editable" : true,
+				"value" : 0
+			}
+		}
+	}
+}

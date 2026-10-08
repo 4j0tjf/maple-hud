@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Maple Scheduler HUD</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="css/hud.css">
+</head>
+<body>
+  <div id="bg" data-type="default" aria-hidden="true">
+    <div class="bg-default"></div>
+    <img id="bg-image" alt="">
+    <video id="bg-video" autoplay muted loop playsinline></video>
+    <div class="bg-dim"></div>
+  </div>
+
+  <div id="stage">
+    <section id="hud">
+      <header class="hud-head">
+        <div class="title-row">
+          <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
+            <polygon points="12,1 13.6,4.6 15.6,3.8 15,8.4 18.2,5.6 18.8,7.4 22,6.8 20.8,10.2 22.4,11.2 17.2,15.4 17.8,17.2 12.8,16.6 12.9,22.5 11.1,22.5 11.2,16.6 6.2,17.2 6.8,15.4 1.6,11.2 3.2,10.2 2,6.8 5.2,7.4 5.8,5.6 9,8.4 8.4,3.8 10.4,4.6"/>
+          </svg>
+          <span class="title">MAPLE SCHEDULER</span>
+          <span id="clock" class="clock"></span>
+        </div>
+        <div class="reset-row">
+          <div class="reset"><span class="k">일일 초기화</span><span id="reset-daily" class="v"></span></div>
+          <div class="reset"><span class="k">주간 보스 <small>목</small></span><span id="reset-boss" class="v"></span></div>
+          <div class="reset"><span class="k">주간 콘텐츠 <small>월</small></span><span id="reset-weekly" class="v"></span></div>
+        </div>
+        <div class="status-row">
+          <div id="summary" class="summary"></div>
+          <div id="sync" class="sync">
+            <i class="sync-dot"></i><span id="sync-text"></span>
+            <button id="btn-refresh" class="icon-btn" type="button" title="지금 새로고침">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button id="btn-settings" class="icon-btn" type="button" title="설정" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </header>
+      <div id="notice"></div>
+      <div id="cards" class="cards"></div>
+    </section>
+  </div>
+
+  <!-- 브라우저에서 열었을 때만 쓰는 설정창 (Wallpaper Engine에서는 배경화면 속성으로 설정) -->
+  <div id="settings" class="settings" hidden>
+    <form id="settings-form" class="settings-box" autocomplete="off">
+      <h2>설정</h2>
+      <label>넥슨 Open API 키
+        <input name="apikey" type="password" placeholder="test_... 또는 live_...">
+      </label>
+      <label>캐릭터 (쉼표로 구분, 비우면 계정에서 자동 선택)
+        <input name="characters" type="text" placeholder="예: 캐릭터1, 캐릭터2">
+      </label>
+      <label>API 주소 (프록시를 쓸 때만)
+        <input name="apibase" type="text" placeholder="https://open.api.nexon.com">
+      </label>
+      <label>갱신 주기 (분)
+        <input name="refreshmin" type="number" min="5" max="180" step="1">
+      </label>
+      <label class="check"><input name="demomode" type="checkbox"> 데모 데이터로 보기</label>
+      <p class="hint">배치·투명도·배경 같은 나머지 옵션은 URL 파라미터로도 바꿀 수 있습니다. (README 참고)</p>
+      <div class="actions">
+        <button type="button" id="settings-cancel">취소</button>
+        <button type="submit" class="primary">저장</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="js/time.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/scheduler.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/demo.js"></script>
+  <script src="js/hud.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
