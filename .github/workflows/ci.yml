@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  web-tests:
+    name: 웹 배경화면 테스트
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+
+  core-tests:
+    name: 네이티브 앱 로직·렌더링 테스트
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet test native/tests/MapleHud.Core.Tests -c Release
+        env:
+          MAPLEHUD_PREVIEW_DIR: ${{ runner.temp }}/previews
+      - uses: actions/upload-artifact@v4
+        with:
+          name: render-previews
+          path: ${{ runner.temp }}/previews
+
+  build-windows:
+    name: Windows 앱 빌드 + 자체 점검
+    needs: core-tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet build native/src/MapleHud -c Release
+      - name: 자체 점검 (데모 모드로 실제 창을 띄우고 화면·메모리 기록)
+        shell: pwsh
+        run: |
+          $env:MAPLEHUD_HOME = Join-Path $env:RUNNER_TEMP 'maplehud'
+          $out = Join-Path $env:RUNNER_TEMP 'selftest.png'
+          $exe = 'native/src/MapleHud/bin/Release/net48/MapleSchedulerHUD.exe'
+          $p = Start-Process -FilePath $exe -ArgumentList '--selftest', $out, '6' -Wait -PassThru
+          Get-Content "$out.txt"
+          if ($p.ExitCode -ne 0) { exit 1 }
+      - name: 배포 폴더 만들기
+        shell: pwsh
+        run: |
+          $dist = 'dist/MapleSchedulerHUD'
+          New-Item -ItemType Directory -Force $dist | Out-Null
+          Copy-Item native/src/MapleHud/bin/Release/net48/* $dist -Recurse -Exclude *.pdb
+          Get-ChildItem $dist -Recurse | Select-Object FullName, Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MapleSchedulerHUD
+          path: dist
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selftest
+          path: |
+            ${{ runner.temp }}/selftest.png
+            ${{ runner.temp }}/selftest.png.txt
