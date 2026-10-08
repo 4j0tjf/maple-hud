@@ -50,13 +50,6 @@ jobs:
           $exe = 'native/src/MapleHud/bin/Release/net48/MapleSchedulerHUD.exe'
           $p = Start-Process -FilePath $exe -ArgumentList '--selftest', $out, '6' -Wait -PassThru
           Get-Content "$out.txt"
-          if (Test-Path "$out.jpg") {
-            # 화면을 로그로도 남긴다 (아티팩트를 못 받는 환경에서 확인용)
-            $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$out.jpg"))
-            Write-Output "SELFTEST-JPEG-BEGIN"
-            for ($i = 0; $i -lt $b64.Length; $i += 4000) { Write-Output $b64.Substring($i, [Math]::Min(4000, $b64.Length - $i)) }
-            Write-Output "SELFTEST-JPEG-END"
-          }
           if ($p.ExitCode -ne 0) { exit 1 }
       - name: 배포 폴더 만들기
         shell: pwsh

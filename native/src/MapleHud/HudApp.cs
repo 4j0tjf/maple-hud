@@ -40,6 +40,7 @@ namespace MapleHud
         private long _lastDailyReset;
         private bool _idle;
         private SettingsForm _settingsForm;
+        private Exception _loggedError;
 
         public HudApp()
         {
@@ -64,7 +65,11 @@ namespace MapleHud
                 _scroll = Math.Max(0, Math.Min(_scroll + delta, _window.CurrentLayout?.MaxScroll ?? 0));
                 Invalidate(body: true);
             };
-            _engine.Changed += () => Invalidate(body: true, rebuild: true);
+            _engine.Changed += () =>
+            {
+                if (_engine.LastError != null && _engine.LastError != _loggedError) Log(_loggedError = _engine.LastError);
+                Invalidate(body: true, rebuild: true);
+            };
             _avatars.Loaded += () => Invalidate(body: true);
 
             _tray = new NotifyIcon { Icon = _icon, Text = "Maple Scheduler HUD", Visible = true, ContextMenuStrip = BuildMenu() };
@@ -209,6 +214,7 @@ namespace MapleHud
 
         private void ApplySettings(HudSettings next, bool persist)
         {
+            bool topMostChanged = next.AlwaysOnTop != _settings.AlwaysOnTop;
             _settings = HudSettings.Sanitize(next.Clone());
             _window.SetTopMost(_settings.AlwaysOnTop);
             _engine.UpdateSettings(_settings);
@@ -217,7 +223,13 @@ namespace MapleHud
                 try { _settings.Save(SettingsPath); }
                 catch (Exception e) { Log(e); }
             }
-            _tray.ContextMenuStrip = BuildMenu();
+            if (topMostChanged)
+            {
+                // 체크 표시를 새로 그리기 위해 메뉴를 다시 만든다
+                var old = _tray.ContextMenuStrip;
+                _tray.ContextMenuStrip = BuildMenu();
+                old?.Dispose();
+            }
             Invalidate(body: true, rebuild: true);
         }
 

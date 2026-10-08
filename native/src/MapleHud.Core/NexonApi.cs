@@ -50,7 +50,8 @@ namespace MapleHud.Core
     public sealed class NexonApi
     {
         public const string DefaultBase = "https://open.api.nexon.com";
-        private const int MinGapMs = 260;
+        // 테스트에서만 0으로 바꾼다
+        public static int MinGapMs = 260;
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(12);
 
         private static readonly SemaphoreSlim Gate = new SemaphoreSlim(1, 1);

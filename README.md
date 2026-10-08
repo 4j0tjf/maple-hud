@@ -160,19 +160,20 @@ Windows 전용 네이티브 앱입니다. Windows 10/11에 기본으로 들어 �
 
 ## 성능 · 리소스
 
-장시간 켜두는 용도라 메모리 누수와 유휴 상태 부하를 측정했습니다. (리눅스 헤드리스 크로미움 / Electron, 가짜 API)
+장시간 켜두는 용도라 메모리와 유휴 상태 부하를 측정했습니다.
 
-| 항목 | 결과 |
-| --- | --- |
-| 메모리 누수 | 15분 주기 동기화를 400번(약 4일치, 자정·목요일 초기화 포함) 반복하는 동안 화면 JS 힙 약 1.9MB, 앱 메인 프로세스 힙 약 5.7MB에서 더 늘지 않음. DOM 노드 · 이벤트 리스너 · 저장소 크기도 일정 |
-| 유휴 CPU (웹 화면) | 렌더러 약 0.6%, 초 단위 표시를 끄면 약 0.15% |
-| 유휴 CPU (오버레이 앱) | 프로세스마다 0.1~0.2% |
-| 오버레이 앱 메모리 | Electron(크로미움) 특성상 프로세스 4개. 시간이 지나도 늘지 않음 |
+| 항목 | ① 오버레이 앱 (네이티브) | ② 웹 배경화면 |
+| --- | --- | --- |
+| 메모리 | 개인 메모리 약 **32MB** (작업 집합 약 53MB, Windows CI에서 데모 화면 기준) — 예전 Electron 버전은 약 145MB | Wallpaper Engine 안에서 동작 |
+| 프로세스 | 1개 | — |
+| 매초 화면 갱신 | 시계·카운트다운만 다시 그림 (약 2ms). 카드 영역은 바뀔 때만 다시 그림 | 바뀐 글자만 고침 |
+| 초 표시를 끄면 | 1분에 한 번만 그림 | 1분에 한 번만 그림 |
+| 메모리 누수 | 15분 주기 동기화+다시 그리기를 650번(약 7일치) 반복해도 관리 메모리 약 1.3MB에서 늘지 않음 | 400번(약 4일치) 반복해도 늘지 않음 |
 
-- 화면이 다른 창에 완전히 가려지거나, Wallpaper Engine이 배경화면을 멈추면(전체 화면 게임 등) 시계와 API 갱신을 멈췄다가 다시 보일 때 이어서 합니다.
-- `[표시] 시계·카운트다운 초 단위 표시`를 끄면 화면을 1분에 한 번만 다시 그립니다. 부하를 최소로 하고 싶을 때 끄세요.
+- 오버레이 앱은 전체 화면 게임 중에는 그리지도, API를 부르지도 않습니다. 웹 배경화면은 Wallpaper Engine이 배경화면을 멈추면 같이 멈춥니다.
+- `시계·카운트다운 초 단위 표시`를 끄면 화면을 1분에 한 번만 다시 그립니다. 부하를 최소로 하고 싶을 때 끄세요.
 - ② 웹 배경화면에서 **동영상 배경 + 패널 흐림**을 함께 쓰면 영상 프레임마다 흐림을 다시 계산합니다.
-  저사양 PC라면 `[패널] 뒤 배경 흐림`을 0으로 두세요. (오버레이 앱은 흐림을 쓰지 않습니다)
+  저사양 PC라면 `[패널] 뒤 배경 흐림`을 0으로 두세요.
 - 한 달 넘게 쓰지 않은 캐시(더 이상 표시하지 않는 캐릭터 등)는 시작할 때 자동으로 지웁니다.
 
 ## 문제 해결
@@ -200,22 +201,28 @@ index.html?demo=1&columns=2&alignx=left&aligny=bottom&uiscale=90&panelopacity=35
 ## 개발
 
 ```
-npm test        # 초기화 시각 계산, 스케줄러 해석, 설정 변환 테스트
+npm test                                         # 웹 배경화면: 초기화 시각, 스케줄러 해석, 설정 변환
+dotnet test native/tests/MapleHud.Core.Tests     # 오버레이 앱: 로직, 동기화 엔진, 렌더링
+dotnet build native/src/MapleHud -c Release      # 오버레이 앱 빌드 (리눅스에서도 됨)
 ```
+
+렌더링 테스트에 `MAPLEHUD_PREVIEW_DIR` 환경변수를 주면 HUD 미리보기 PNG를 남깁니다.
 
 | 파일 | 역할 |
 | --- | --- |
-| `wallpaper/project.json` | Wallpaper Engine 프로젝트와 속성 정의 |
-| `wallpaper/js/api.js` | 넥슨 Open API 호출 (순차 큐로 초당 호출 제한 준수) |
-| `wallpaper/js/scheduler.js` | 스케줄러 응답 해석, 초기화 반영 |
-| `wallpaper/js/time.js` | KST 초기화 시각 계산 |
-| `wallpaper/js/config.js` | 설정 항목 정의, WE 속성 · URL 파라미터 · 저장된 설정 |
-| `wallpaper/js/settings.js` | ⚙ 설정창 (브라우저 · 오버레이 앱) |
-| `wallpaper/js/hud.js` · `main.js` | 화면 그리기, 동기화 흐름 |
-| `wallpaper/js/overlay.js` | 오버레이 앱 전용: 패널 밖 클릭 통과, 트레이 명령 |
-| `overlay/main.js` · `preload.js` | 오버레이 앱 (Electron): 투명 창, 트레이, API 대리 호출 |
+| `native/src/MapleHud.Core/` | 오버레이 앱 핵심 (Windows 의존성 없음, .NET Standard 2.0) |
+| ├ `KstTime.cs` · `Scheduler.cs` | KST 초기화 시각, 스케줄러 해석과 캐릭터별 표시 설정 |
+| ├ `NexonApi.cs` · `SyncEngine.cs` | 넥슨 Open API 호출 (초당 호출 제한 준수), 캐릭터 결정·캐시·갱신 주기 |
+| ├ `JsonStore.cs` · `HudSettings.cs` · `HudView.cs` | 캐시·설정 저장, 화면 상태와 사용자 조작 |
+| └ `Render/HudRenderer.cs` | SkiaSharp로 HUD 그리기, 클릭 영역 |
+| `native/src/MapleHud/` | Windows 앱 (.NET Framework 4.8, WinForms) |
+| ├ `OverlayWindow.cs` · `Native.cs` | 반투명 레이어드 창, DPI, 마우스 |
+| ├ `HudApp.cs` · `SettingsForm.cs` | 트레이, 1초 타이머, 설정 창 |
+| └ `SelfTest.cs` | CI 자체 점검 (`--selftest out.png`) |
+| `native/fonts/` | Pretendard 글꼴 (SIL OFL 1.1) |
+| `wallpaper/` | Wallpaper Engine 웹 배경화면 (`project.json`, `js/`, `css/`) |
 | `proxy/maple-hud-proxy.js` | (선택) 웹 배경화면용 CORS 우회 로컬 프록시 |
-| `.github/workflows/overlay.yml` | 테스트 후 Windows용 portable exe 빌드 |
+| `.github/workflows/ci.yml` | 테스트, Windows 빌드, 자체 점검, 배포 파일 |
 
 > **주의**: API 키는 `project.json`에 직접 적지 마세요. 워크숍에 올리면 키가 그대로 공개됩니다.
 > 속성 패널에 입력한 값은 내 PC의 Wallpaper Engine 설정에만 저장됩니다.

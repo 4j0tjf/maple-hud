@@ -61,6 +61,8 @@ namespace MapleHud.Core
         public bool Demo { get; private set; }
         public long LastSync { get; private set; }
         public long NextSyncAt { get; private set; }
+        /// <summary>마지막으로 난 예상 못 한 오류 (앱이 로그로 남긴다)</summary>
+        public Exception LastError { get; private set; }
 
         /// <summary>표시할 내용이 바뀌었을 때 (다시 그리기)</summary>
         public event Action Changed;
@@ -157,6 +159,12 @@ namespace MapleHud.Core
             catch (ApiException e)
             {
                 Notice = new Notice("error", e.Message);
+            }
+            catch (Exception e) when (!(e is OutOfMemoryException))
+            {
+                // 응답 형식이 바뀌는 등 예상 못 한 문제도 화면에 알린다
+                Notice = new Notice("error", "동기화 중 오류: " + e.Message);
+                LastError = e;
             }
             finally
             {
