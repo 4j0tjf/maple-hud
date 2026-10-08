@@ -278,7 +278,8 @@ namespace MapleHud.Core.Render
             float content = CardsHeight(heights, s.Columns);
             float viewport = Math.Max(60, Math.Min(content, input.MaxHeight - top - Pad));
             if (content == 0) viewport = 0;
-            float h = top + viewport + Pad;
+            float emptyH = input.View.Cards.Count == 0 ? Empty(Pad, top, inner) : 0;
+            float h = top + viewport + emptyH + Pad;
 
             _layout.Width = w;
             _layout.Height = h;
@@ -300,11 +301,7 @@ namespace MapleHud.Core.Render
 
             if (input.View.Cards.Count == 0)
             {
-                if (!input.View.Syncing)
-                {
-                    float tw = Width("표시할 캐릭터가 없습니다", 400, 13);
-                    Text("표시할 캐릭터가 없습니다", Pad + (inner - tw) / 2, top + 4, 40, 400, 13, _th.Text3);
-                }
+                Empty(Pad, top, inner);
                 return _layout;
             }
 
@@ -516,24 +513,46 @@ namespace MapleHud.Core.Render
             _c.DrawCircle(r.MidX, r.MidY, 3.2f * 13f / 24, _stroke);
         }
 
+        // 캐릭터가 아직 없을 때: 처음 불러오는 중이면 진행 상황을 보여준다
+        private float Empty(float x, float y, float w)
+        {
+            var view = _in.View;
+            string main = view.Syncing ? "캐릭터 정보를 불러오는 중…" : "표시할 캐릭터가 없습니다";
+            float mw = Width(main, 400, 13);
+            Text(main, x + (w - mw) / 2, y, 26, 400, 13, view.Syncing ? _th.Text2 : _th.Text3);
+            if (!view.Syncing || string.IsNullOrEmpty(view.Progress)) return 26;
+            float pw = Width(view.Progress, 400, 11.5f);
+            Text(view.Progress, x + (w - pw) / 2, y + 24, 18, 400, 11.5f, _th.Text3);
+            return 26 + 18;
+        }
+
         private float Notices(float x, float y, float w)
         {
             var list = new List<Notice>();
+            if (_in.View.Flash != null) list.Add(_in.View.Flash);
             if (_in.View.Demo) list.Add(new Notice("info", "데모 데이터입니다. 오른쪽 위 설정(톱니바퀴) 버튼에서 넥슨 Open API 키를 입력하세요."));
             if (_in.View.Notice != null) list.Add(_in.View.Notice);
             float yy = y;
             foreach (var n in list)
             {
                 bool info = n.Level == "info";
+                bool ok = n.Level == "success";
                 bool err = n.Level == "error";
                 float textX = x + 10 + (info ? 0 : 21);
                 var lines = Wrap(n.Text, w - (textX - x) - 10, 400, 12);
                 float h = 16 + lines.Count * 17.4f;
                 var r = new SKRect(x, yy, x + w, yy + h);
-                RRect(r, 10, err ? new SKColor(255, 90, 90, 36) : Theme.A(_th.Accent, 0.12),
-                    err ? new SKColor(255, 110, 110, 89) : Theme.A(_th.Accent, 0.28));
-                if (!info) Icon(Icons.WarnTriangle, x + 10, yy + 9.5f, 14, 16, err ? _th.Danger : _th.Text, strokeWidth: 1.5f);
-                if (!info) Icon(Icons.WarnMark, x + 10, yy + 9.5f, 14, 16, err ? _th.Danger : _th.Text, strokeWidth: 1.6f);
+                RRect(r, 10, err ? new SKColor(255, 90, 90, 36) : ok ? Theme.A(_th.Done, 0.13) : Theme.A(_th.Accent, 0.12),
+                    err ? new SKColor(255, 110, 110, 89) : ok ? Theme.A(_th.Done, 0.36) : Theme.A(_th.Accent, 0.28));
+                if (ok)
+                {
+                    Icon(Icons.Check, x + 10, yy + 9.5f, 14, 16, _th.Done, strokeWidth: 2.2f);
+                }
+                else if (!info)
+                {
+                    Icon(Icons.WarnTriangle, x + 10, yy + 9.5f, 14, 16, err ? _th.Danger : _th.Text, strokeWidth: 1.5f);
+                    Icon(Icons.WarnMark, x + 10, yy + 9.5f, 14, 16, err ? _th.Danger : _th.Text, strokeWidth: 1.6f);
+                }
                 for (int i = 0; i < lines.Count; i++) Text(lines[i], textX, yy + 8 + i * 17.4f, 17.4f, 400, 12, _th.Text);
                 yy += h + 8;
             }

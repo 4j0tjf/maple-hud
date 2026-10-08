@@ -97,6 +97,33 @@ namespace MapleHud.Core.Tests
         }
 
         [Fact]
+        public void 처음_불러오는_중에는_진행_상황과_저장_알림을_보여준다()
+        {
+            var s = new HudSettings();
+            using (var fonts = FontSet.Load(FontsDir()))
+            using (var r = new HudRenderer(fonts))
+            {
+                var none = r.Measure(new RenderInput { View = new HudView(), Settings = s, Now = T.Now });
+                // 캐릭터가 없다는 문구도 패널 안에 들어간다
+                Assert.Equal(none.CardsTop + 26 + 14, none.Height);
+
+                var view = new HudView
+                {
+                    Syncing = true,
+                    Progress = "캐릭터 확인 중 1/2",
+                    Flash = new Notice("success", "설정을 저장했습니다")
+                };
+                using (var bmp = Render(r, new RenderInput { View = view, Settings = s, Now = T.Now }, out var layout))
+                {
+                    Save(bmp, "loading");
+                    // 저장 알림 한 줄과 진행 상황 줄만큼 커진다
+                    Assert.True(layout.CardsTop > none.CardsTop + 30);
+                    Assert.Equal(layout.CardsTop + 26 + 18 + 14, layout.Height);
+                }
+            }
+        }
+
+        [Fact]
         public void 편집_버튼을_누르면_편집_화면이_된다()
         {
             var s = new HudSettings();

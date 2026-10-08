@@ -51,6 +51,16 @@ jobs:
           $p = Start-Process -FilePath $exe -ArgumentList '--selftest', $out, '6' -Wait -PassThru
           Get-Content "$out.txt"
           if ($p.ExitCode -ne 0) { exit 1 }
+      - name: 자체 점검 (설정 창에서 API 키 입력 후 저장 버튼)
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          $env:MAPLEHUD_HOME = Join-Path $env:RUNNER_TEMP 'maplehud-settings'
+          $out = Join-Path $env:RUNNER_TEMP 'selftest-settings.png'
+          $exe = 'native/src/MapleHud/bin/Release/net48/MapleSchedulerHUD.exe'
+          $p = Start-Process -FilePath $exe -ArgumentList '--selftest', $out, '6', 'settings' -Wait -PassThru
+          Get-Content "$out.txt"
+          if ($p.ExitCode -ne 0) { exit 1 }
       - name: 배포 폴더 만들기
         shell: pwsh
         run: |
@@ -71,3 +81,6 @@ jobs:
             ${{ runner.temp }}/selftest.png
             ${{ runner.temp }}/selftest.png.txt
             ${{ runner.temp }}/selftest.png.jpg
+            ${{ runner.temp }}/selftest-settings.png
+            ${{ runner.temp }}/selftest-settings.png.txt
+            ${{ runner.temp }}/selftest-settings.png.jpg

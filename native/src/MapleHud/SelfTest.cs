@@ -10,6 +10,9 @@ namespace MapleHud
     /// 앱을 데모 모드로 몇 초 띄운 뒤 화면을 PNG로 저장하고 메모리 사용량을 출력한다.
     ///   set MAPLEHUD_HOME=%TEMP%\maplehud-selftest
     ///   MapleSchedulerHUD.exe --selftest out.png [초]
+    /// settings를 붙이면 설정 창에 API 키·캐릭터를 넣고 저장 버튼을 눌러서
+    /// 저장·창 닫힘·동기화 시작·저장 알림을 확인한다 (접속할 수 없는 주소를 써서 실제 API는 부르지 않는다).
+    ///   MapleSchedulerHUD.exe --selftest out.png 6 settings
     /// </summary>
     internal static class SelfTest
     {
@@ -29,20 +32,42 @@ namespace MapleHud
             }
         }
 
-        public static int Run(string outPath, int seconds)
+        private const string TestKey = "selftest-key";
+
+        public static int Run(string outPath, int seconds, string scenario = null)
         {
             int code = 1;
             try
             {
                 Application.EnableVisualStyles();
                 var app = new HudApp();
+                string saveReport = null;
+                if (scenario == "settings")
+                {
+                    var save = new Timer { Interval = 1500 };
+                    save.Tick += (s, e) =>
+                    {
+                        save.Stop();
+                        var form = app.OpenSettingsForTest();
+                        form.FillApiForTest(TestKey, "테스트캐릭터", "http://127.0.0.1:9");
+                        form.SaveButton.PerformClick();
+                    };
+                    save.Start();
+                    // 저장 알림이 떠 있는 동안 확인한다
+                    seconds = 4;
+                }
                 var timer = new Timer { Interval = Math.Max(1, seconds) * 1000 };
                 timer.Tick += (s, e) =>
                 {
                     timer.Stop();
                     try
                     {
-                        var report = app.SelfTestReport(outPath);
+                        if (scenario == "settings")
+                        {
+                            saveReport = app.SettingsSaveReport(TestKey);
+                            if (!saveReport.StartsWith("ok")) throw new InvalidOperationException(saveReport);
+                        }
+                        var report = app.SelfTestReport(outPath) + (saveReport != null ? " | " + saveReport : "");
                         SavePreviewJpeg(outPath, outPath + ".jpg");
                         GC.Collect();
                         GC.WaitForPendingFinalizers();

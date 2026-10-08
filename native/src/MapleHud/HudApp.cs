@@ -42,6 +42,13 @@ namespace MapleHud
         private SettingsForm _settingsForm;
         private Exception _loggedError;
 
+        // 저장 직후 알림: 동기화가 끝날 때까지 진행 상황을 보여주고, 끝나면 몇 초 뒤 사라진다
+        private const long FlashMs = 5000;
+        private bool _flashSaved;
+        private bool _flashSynced;
+        private string _flashError;
+        private long _flashUntil;
+
         public HudApp()
         {
             _settings = HudSettings.Load(SettingsPath);
@@ -104,6 +111,7 @@ namespace MapleHud
             {
                 _controller.Settings = _settings;
                 _view = _controller.Build();
+                _view.Flash = FlashNotice(_view, KstTime.NowMs());
             }
             if (body) _bodyVersion++;
             Present(force: body);
@@ -133,6 +141,15 @@ namespace MapleHud
             }
             _engine.Tick(_idle);
             if (_idle) return;
+
+            if (_flashUntil > 0 && now >= _flashUntil)
+            {
+                _flashSaved = false;
+                _flashError = null;
+                _flashUntil = 0;
+                Invalidate(body: true, rebuild: true);
+                return;
+            }
 
             // 자정이 지나면 완료 표시를 미리 해제해서 다시 그린다
             var reset = KstTime.LastReset(ResetKind.Daily, now);
@@ -206,7 +223,12 @@ namespace MapleHud
                 {
                     // 레지스트리를 못 쓰는 환경이면 자동 실행만 건너뛴다
                 }
+                _flashSaved = true;
+                _flashSynced = false;
+                _flashError = null;
+                _flashUntil = 0;
                 ApplySettings(form.Result, persist: true);
+                _window.BringToFront2();
             };
             _settingsForm.Show();
             _settingsForm.Activate();
@@ -220,8 +242,16 @@ namespace MapleHud
             _engine.UpdateSettings(_settings);
             if (persist)
             {
-                try { _settings.Save(SettingsPath); }
-                catch (Exception e) { Log(e); }
+                try
+                {
+                    _settings.Save(SettingsPath);
+                }
+                catch (Exception e)
+                {
+                    Log(e);
+                    _flashError = e.Message;
+                    _flashUntil = 0;
+                }
             }
             if (topMostChanged)
             {
@@ -231,6 +261,24 @@ namespace MapleHud
                 old?.Dispose();
             }
             Invalidate(body: true, rebuild: true);
+        }
+
+        private Notice FlashNotice(HudView view, long now)
+        {
+            if (!_flashSaved && _flashError == null) return null;
+            if (_flashError == null && _engine.Syncing)
+            {
+                _flashUntil = 0;
+                _flashSynced = true;
+                // 카드가 아직 없으면 진행 상황은 카드 자리에 나온다
+                return new Notice("success", view.Cards.Count == 0 ? "설정을 저장했습니다"
+                    : "설정을 저장했습니다 · " + (_engine.Progress ?? "불러오는 중…"));
+            }
+            if (_flashUntil == 0) _flashUntil = now + FlashMs;
+            if (_flashError != null) return new Notice("error", "설정 파일을 저장하지 못했습니다: " + _flashError);
+            int loaded = _engine.Chars.Count(c => c.Body != null);
+            return new Notice("success", !_flashSynced || _engine.Demo || loaded == 0 ? "설정을 저장했습니다"
+                : "설정을 저장했습니다 · 캐릭터 " + loaded + "명 반영");
         }
 
         /* ---------- 트레이 ---------- */
@@ -298,6 +346,24 @@ namespace MapleHud
         }
 
         public void BringToFront() => _window.BringToFront2();
+
+        /* ---------- 자체 점검 ---------- */
+
+        internal SettingsForm OpenSettingsForTest()
+        {
+            ShowSettings();
+            return _settingsForm;
+        }
+
+        /// <summary>설정 저장 뒤 상태: 파일에 저장됐는지, 창이 닫혔는지, 데모를 벗어나 동기화했는지, 알림</summary>
+        internal string SettingsSaveReport(string expectedKey)
+        {
+            var saved = File.Exists(SettingsPath) && HudSettings.Load(SettingsPath).ApiKey == expectedKey;
+            bool ok = saved && _settingsForm == null && !_engine.Demo && _view.Flash != null;
+            return (ok ? "ok" : "fail") + " saved=" + saved + " formClosed=" + (_settingsForm == null) +
+                " demo=" + _engine.Demo + " syncing=" + _engine.Syncing + " cards=" + _view.Cards.Count +
+                " flash=\"" + _view.Flash?.Text + "\" notice=\"" + _engine.Notice?.Text + "\"";
+        }
 
         /// <summary>자체 점검용: 지금 화면을 PNG로 저장하고 요약을 돌려준다</summary>
         public string SelfTestReport(string pngPath)

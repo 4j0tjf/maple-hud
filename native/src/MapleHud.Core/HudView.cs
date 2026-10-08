@@ -25,8 +25,11 @@ namespace MapleHud.Core
     {
         public List<CardView> Cards = new List<CardView>();
         public Notice Notice;
+        /// <summary>앱이 잠깐 보여주는 알림 ("설정을 저장했습니다" 등). 동기화 알림보다 위에 표시</summary>
+        public Notice Flash;
         public bool Demo;
         public bool Syncing;
+        public string Progress;
         public long LastSync;
         public int RemainDaily, RemainWeekly, RemainBoss;
     }
@@ -77,6 +80,7 @@ namespace MapleHud.Core
                 Notice = _engine.Notice,
                 Demo = _engine.Demo,
                 Syncing = _engine.Syncing,
+                Progress = _engine.Progress,
                 LastSync = _engine.LastSync
             };
             foreach (var c in _engine.Chars)

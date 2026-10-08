@@ -24,7 +24,7 @@ namespace MapleHud.Core
 
     public sealed class Notice
     {
-        public string Level;   // info, warn, error
+        public string Level;   // info, success, warn, error
         public string Text;
         public Notice(string level, string text) { Level = level; Text = text; }
     }
@@ -58,6 +58,8 @@ namespace MapleHud.Core
         public List<CharState> Chars { get; private set; } = new List<CharState>();
         public Notice Notice { get; private set; }
         public bool Syncing { get; private set; }
+        /// <summary>동기화 중 진행 상황 ("캐릭터 확인 중 3/12" 등). 동기화가 아니면 null</summary>
+        public string Progress { get; private set; }
         public bool Demo { get; private set; }
         public long LastSync { get; private set; }
         public long NextSyncAt { get; private set; }
@@ -135,6 +137,7 @@ namespace MapleHud.Core
             Demo = false;
             Syncing = true;
             Notice = null;
+            Progress = "캐릭터 확인 중";
             if (Chars.Count == 0)
             {
                 // 다시 켜졌을 때 지난번 캐릭터와 캐시를 먼저 보여준다 (오프라인이어도)
@@ -153,7 +156,18 @@ namespace MapleHud.Core
                 Chars = Adopt(targets);
                 _store.Set("targets", new LastTargets { Sig = TargetsSig(settings), List = targets });
                 Emit();
-                foreach (var c in Chars) await LoadChar(api, c, settings, force).ConfigureAwait(true);
+                // 스케줄러를 먼저 모두 받아 화면을 채우고, 캐릭터 이미지는 그다음에 받는다
+                var list = Chars;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    SetProgress("스케줄러 받는 중 " + (i + 1) + "/" + list.Count);
+                    await LoadSchedule(api, list[i], force).ConfigureAwait(true);
+                }
+                if (settings.ShowAvatar)
+                {
+                    SetProgress("캐릭터 이미지 받는 중");
+                    foreach (var c in list) await LoadBasic(api, c).ConfigureAwait(true);
+                }
                 LastSync = Now;
             }
             catch (ApiException e)
@@ -169,6 +183,7 @@ namespace MapleHud.Core
             finally
             {
                 Syncing = false;
+                Progress = null;
                 ScheduleNext();
                 _store.Flush();
                 Emit();
@@ -180,6 +195,12 @@ namespace MapleHud.Core
                 _pendingForce = null;
                 await SyncAsync(next).ConfigureAwait(true);
             }
+        }
+
+        private void SetProgress(string text)
+        {
+            Progress = text;
+            Emit();
         }
 
         private void LoadDemo()
@@ -252,6 +273,7 @@ namespace MapleHud.Core
             var result = new List<Target>();
             foreach (var name in names)
             {
+                SetProgress("캐릭터 확인 중 " + (result.Count + 1) + "/" + names.Count);
                 if (known.TryGetValue(name, out var t))
                 {
                     result.Add(t);
@@ -285,9 +307,11 @@ namespace MapleHud.Core
             int maxChars = Math.Max(1, s.MaxChars);
             var found = new List<Target>();
             // 스케줄러에 항목이 등록된 캐릭터를 레벨 순으로 찾는다. 결과는 TtlDiscovery 동안 재사용
+            int scanned = 0;
             foreach (var c in all)
             {
                 if (found.Count >= maxChars) break;
+                SetProgress("스케줄러 등록 캐릭터 찾는 중 " + (++scanned) + "/" + all.Count);
                 var reg = _store.GetCached("reg:" + c.Ocid, TtlDiscovery, Now);
                 if (reg != null)
                 {
@@ -346,7 +370,7 @@ namespace MapleHud.Core
             }).ToList();
         }
 
-        private async Task LoadChar(NexonApi api, CharState c, HudSettings s, bool force)
+        private async Task LoadSchedule(NexonApi api, CharState c, bool force)
         {
             if (string.IsNullOrEmpty(c.Ocid)) return;
             c.Loading = true;
@@ -358,18 +382,6 @@ namespace MapleHud.Core
                 c.FetchedAt = entry.At;
                 c.Error = null;
                 _store.SetCached("reg:" + c.Ocid, Scheduler.HasRegistered(J.Parse(entry.Data)) ? "true" : "false", Now);
-                if (s.ShowAvatar)
-                {
-                    try
-                    {
-                        var basic = await Cached("basic:" + c.Ocid, TtlBasic, false, () => api.BasicAsync(c.Ocid)).ConfigureAwait(true);
-                        c.Basic = basic.Data;
-                    }
-                    catch (ApiException e) when (!e.IsFatal)
-                    {
-                        // 아바타는 없어도 된다
-                    }
-                }
             }
             catch (ApiException e) when (!e.IsFatal)
             {
@@ -380,6 +392,24 @@ namespace MapleHud.Core
             {
                 c.Loading = false;
                 Emit();
+            }
+        }
+
+        private async Task LoadBasic(NexonApi api, CharState c)
+        {
+            if (string.IsNullOrEmpty(c.Ocid) || c.Error != null) return;
+            try
+            {
+                var basic = await Cached("basic:" + c.Ocid, TtlBasic, false, () => api.BasicAsync(c.Ocid)).ConfigureAwait(true);
+                if (basic.Data != c.Basic)
+                {
+                    c.Basic = basic.Data;
+                    Emit();
+                }
+            }
+            catch (ApiException e) when (!e.IsFatal)
+            {
+                // 아바타는 없어도 된다
             }
         }
 

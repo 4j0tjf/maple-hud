@@ -124,6 +124,31 @@ namespace MapleHud.Core.Tests
         }
 
         [Fact]
+        public async Task 스케줄러를_먼저_모두_받고_진행_상황을_알린다()
+        {
+            var engine = Engine(new HudSettings { ApiKey = "test_key", Characters = "메인캐릭,부캐하나" });
+            var progress = new List<string>();
+            engine.Changed += () =>
+            {
+                if (engine.Progress != null && (progress.Count == 0 || progress[progress.Count - 1] != engine.Progress)) progress.Add(engine.Progress);
+            };
+            await engine.SyncAsync(false);
+            Assert.Equal(new[]
+            {
+                "id?character_name=메인캐릭", "id?character_name=부캐하나",
+                "scheduler/character-state?ocid=o1", "scheduler/character-state?ocid=o2",
+                "character/basic?ocid=o1", "character/basic?ocid=o2"
+            }, _fake.Calls);
+            Assert.Equal(new[]
+            {
+                "캐릭터 확인 중", "캐릭터 확인 중 1/2", "캐릭터 확인 중 2/2",
+                "스케줄러 받는 중 1/2", "스케줄러 받는 중 2/2", "캐릭터 이미지 받는 중"
+            }, progress);
+            Assert.False(engine.Syncing);
+            Assert.Null(engine.Progress);
+        }
+
+        [Fact]
         public async Task 잘못된_키는_전체_알림()
         {
             var engine = Engine(new HudSettings { ApiKey = "wrong" });

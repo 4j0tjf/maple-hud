@@ -13,7 +13,8 @@ namespace MapleHud
         [STAThread]
         private static int Main(string[] args)
         {
-            if (args.Length >= 2 && args[0] == "--selftest") return SelfTest.Run(args[1], args.Length >= 3 ? int.Parse(args[2]) : 5);
+            if (args.Length >= 2 && args[0] == "--selftest")
+                return SelfTest.Run(args[1], args.Length >= 3 ? int.Parse(args[2]) : 5, args.Length >= 4 ? args[3] : null);
 
             using (var mutex = new Mutex(true, MutexName, out bool first))
             {

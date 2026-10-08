@@ -14,7 +14,10 @@ namespace MapleHud
     {
         private readonly HudSettings _original;
         private readonly Action<HudSettings> _preview;
+        private readonly bool _autoStartBefore;
         private bool _loading = true;
+        private string _baseline;   // 처음 연 상태 (바뀐 내용이 있는지 비교용)
+        private bool _decided;      // 저장/취소 버튼으로 닫음
 
         private readonly TextBox _apiKey = new TextBox { UseSystemPasswordChar = true };
         private readonly CheckBox _showKey = new CheckBox { Text = "보기", AutoSize = true };
@@ -51,12 +54,14 @@ namespace MapleHud
         private Screen[] _screens;
 
         public HudSettings Result { get; private set; }
+        internal Button SaveButton { get; private set; }
         public bool AutoStartChecked => _autoStart.Checked;
 
         public SettingsForm(HudSettings current, bool autoStart, Icon icon, Action<HudSettings> preview)
         {
             _original = current.Clone();
             _preview = preview;
+            _autoStartBefore = autoStart;
             Text = "Maple Scheduler HUD 설정";
             Icon = icon;
             Font = new Font("맑은 고딕", 9f);
@@ -127,8 +132,12 @@ namespace MapleHud
                 AutoSize = true,
                 Padding = new Padding(12, 8, 12, 12)
             };
-            var save = new Button { Text = "저장", Width = 90, Height = 30, DialogResult = DialogResult.OK };
-            var cancel = new Button { Text = "취소", Width = 90, Height = 30, DialogResult = DialogResult.Cancel };
+            var save = new Button { Text = "저장", Width = 90, Height = 30 };
+            var cancel = new Button { Text = "취소", Width = 90, Height = 30 };
+            // 모달이 아닌 창은 DialogResult만으로는 닫히지 않아서 직접 닫는다
+            save.Click += (s, e) => Finish(DialogResult.OK);
+            cancel.Click += (s, e) => Finish(DialogResult.Cancel);
+            SaveButton = save;
             buttons.Controls.Add(save);
             buttons.Controls.Add(cancel);
             AcceptButton = save;
@@ -141,6 +150,7 @@ namespace MapleHud
             Wire();
             _accent.Click += (s, e) => PickAccent();
             FormClosing += OnClosing;
+            _baseline = Read().ToJson();
             _loading = false;
         }
 
@@ -294,10 +304,38 @@ namespace MapleHud
             return HudSettings.Sanitize(s);
         }
 
+        private void Finish(DialogResult result)
+        {
+            _decided = true;
+            DialogResult = result;
+            Close();
+        }
+
+        private bool Changed() => Read().ToJson() != _baseline || _autoStart.Checked != _autoStartBefore;
+
         private void OnClosing(object sender, FormClosingEventArgs e)
         {
+            if (!_decided && e.CloseReason == CloseReason.UserClosing && Changed())
+            {
+                // 창의 X로 닫을 때 바꾼 내용이 있으면 저장할지 묻는다
+                var answer = MessageBox.Show(this, "바꾼 설정을 저장할까요?", Text, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                if (answer == DialogResult.Cancel)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+                DialogResult = answer == DialogResult.Yes ? DialogResult.OK : DialogResult.Cancel;
+            }
             if (DialogResult == DialogResult.OK) Result = Read();
             else _preview(_original);   // 취소하면 미리보기를 되돌린다
+        }
+
+        /// <summary>자체 점검용: API 입력란을 채운다</summary>
+        internal void FillApiForTest(string apiKey, string characters, string apiBase)
+        {
+            _apiKey.Text = apiKey;
+            _characters.Text = characters;
+            _apiBase.Text = apiBase;
         }
     }
 }

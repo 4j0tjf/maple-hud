@@ -17,7 +17,7 @@ namespace MapleHud.Core.Tests
         public LeakTests(ITestOutputHelper output) { _out = output; }
 
         [Fact]
-        public async Task 동기화와_그리기를_반복해도_메모리가_늘지_않는다()
+        public void 동기화와_그리기를_반복해도_메모리가_늘지_않는다()
         {
             int gap = NexonApi.MinGapMs;
             NexonApi.MinGapMs = 0;
