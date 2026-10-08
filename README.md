@@ -20,11 +20,18 @@ Wallpaper Engine 배경화면 위에 반투명 HUD로 띄워주는 웹 배경화
 ## 설치
 
 1. 이 저장소를 내려받습니다. (GitHub에서 `Code → Download ZIP`)
-2. `wallpaper` 폴더를 Wallpaper Engine의 프로젝트 폴더에 복사합니다.
+2. 압축을 푼 저장소에서 **`wallpaper` 폴더 하나만** `myprojects`에 복사하고 이름을 `maple-hud`로 바꿉니다.
+   `myprojects` 안의 폴더 하나가 배경화면 하나라서, 저장소 전체(docs, proxy, test 등)를 넣으면 안 됩니다.
    ```
-   C:\Program Files (x86)\Steam\steamapps\common\wallpaper_engine\projects\myprojects\maple-hud\
+   ...\steamapps\common\wallpaper_engine\projects\myprojects\
+   └─ maple-hud\          ← 저장소의 wallpaper 폴더
+      ├─ project.json     ← 이 파일이 바로 여기 있어야 인식됩니다
+      ├─ index.html
+      ├─ preview.jpg
+      ├─ css\
+      └─ js\
    ```
-   복사한 폴더 안에 `project.json`과 `index.html`이 바로 있어야 합니다.
+   `proxy` 폴더는 CORS 문제가 생겼을 때만 쓰니 다른 곳에 따로 보관하세요.
 3. Wallpaper Engine을 다시 열면 설치된 배경화면 목록에 **Maple Scheduler HUD**가 보입니다. 선택하세요.
 4. 오른쪽 속성 패널에서 **[API] 넥슨 Open API 키**를 입력합니다. 키를 입력하기 전에는 데모 데이터가 보입니다.
 
