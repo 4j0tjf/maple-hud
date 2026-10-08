@@ -128,3 +128,55 @@ test('목요일 초기화가 지나면 주간 보스와 클리어 횟수를 초�
   assert.equal(m.boss[1].done, true, '월간 보스는 1일에 초기화');
   assert.equal(m.bossClear, 0);
 });
+
+test('캐릭터별 표시 설정: 분류 끄기, 항목 선택이 기본 규칙보다 우선', () => {
+  const b = body({
+    daily_contents: [content('몬스터파크'), content('우르스'), content('미등록', { registration_flag: 'false' })],
+    weekly_contents: [content('무릉도장')],
+    boss_contents: [boss('스우', { list_order_no: 1 }), boss('검은 마법사', { cycle: '월간', list_order_no: 2 })]
+  });
+  const selection = {
+    groups: { weekly: false },
+    items: { 'daily:우르스': false, 'daily:미등록': true, 'boss:검은 마법사': false }
+  };
+  const m = scheduler.normalize(b, NOW - MIN, NOW, { selection });
+  assert.deepEqual(m.daily.map((it) => it.name), ['몬스터파크', '미등록']);
+  assert.equal(m.weekly.length, 0);
+  assert.deepEqual(m.boss.map((it) => it.name), ['스우']);
+  assert.equal(m.customized, true);
+  assert.deepEqual(m.count.daily, { done: 0, total: 2 });
+
+  // 편집 화면용 분류: 숨긴 항목도 들어 있고, 보스는 주기별로 나뉜다
+  assert.deepEqual(m.groups.map((g) => [g.id, g.on, g.items.length]), [
+    ['daily', true, 3], ['weekly', false, 1], ['bossWeekly', true, 1], ['bossMonthly', true, 1]
+  ]);
+});
+
+test('표시 설정 편집 동작', () => {
+  const b = body({
+    daily_contents: [content('몬스터파크'), content('우르스')],
+    boss_contents: [boss('스우'), boss('검은 마법사', { cycle: '월간' })]
+  });
+  const view = (sel) => scheduler.normalize(b, NOW - MIN, NOW, { selection: sel });
+
+  let sel = scheduler.editSelection(null, view(null), 'item', 'daily:우르스');
+  assert.deepEqual(view(sel).daily.map((it) => it.name), ['몬스터파크']);
+  sel = scheduler.editSelection(sel, view(sel), 'item', 'daily:우르스');
+  assert.equal(view(sel).daily.length, 2, '다시 누르면 다시 보인다');
+
+  sel = scheduler.editSelection(sel, view(sel), 'group', 'bossMonthly');
+  assert.deepEqual(view(sel).boss.map((it) => it.name), ['스우']);
+  sel = scheduler.editSelection(sel, view(sel), 'group', 'bossMonthly');
+  assert.equal(view(sel).boss.length, 2);
+
+  sel = scheduler.editSelection(sel, view(sel), 'none', 'daily');
+  assert.equal(view(sel).daily.length, 0);
+  sel = scheduler.editSelection(sel, view(sel), 'all', 'daily');
+  assert.equal(view(sel).daily.length, 2);
+});
+
+test('보스 난이도가 바뀌어도 선택이 유지된다', () => {
+  const sel = { items: { 'boss:스우': false } };
+  const m = scheduler.normalize(body({ boss_contents: [boss('스우', { difficulty: '익스트림' })] }), NOW - MIN, NOW, { selection: sel });
+  assert.equal(m.boss.length, 0);
+});

@@ -18,7 +18,8 @@
 
   var ICON = {
     check: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.6 8.4l2.9 2.9 5.9-6.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    warn: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8l6.6 11.7H1.4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.2v3.4M8 11.6v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+    warn: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8l6.6 11.7H1.4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.2v3.4M8 11.6v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    edit: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.6 2.6l2.8 2.8-7.6 7.6-3.4.6.6-3.4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9.2 4l2.8 2.8" stroke="currentColor" stroke-width="1.5"/></svg>'
   };
 
   var DIFFICULTY = {
@@ -165,12 +166,58 @@
     return '<span class="t' + cls + '"><em>' + label + '</em>' + c.done + '/' + c.total + '</span>';
   }
 
+  /* ---------- 표시 항목 편집 ---------- */
+
+  function editChip(card, group, it) {
+    var label = group.id === 'daily' || group.id === 'weekly' ? shortName(it.name) : it.name;
+    var diff = it.difficulty
+      ? '<span class="diff diff-' + (DIFFICULTY[it.difficulty] || 'etc') + '">' + esc(it.difficulty) + '</span>'
+      : '';
+    var title = it.name + (it.difficulty ? ' (' + it.difficulty + ')' : '') + (it.registered ? ' · 인게임 스케줄러에 등록됨' : '');
+    return '<li class="chip pick ' + (it.visible ? 'on' : 'off') + '" data-action="item" data-key="' + esc(card.key) +
+      '" data-id="' + esc(it.key) + '" title="' + esc(title) + '">' +
+      '<i class="dot">' + (it.visible ? ICON.check : '') + '</i>' +
+      '<span class="nm">' + esc(label) + '</span>' + diff +
+      (it.registered ? '<span class="reg">★</span>' : '') + '</li>';
+  }
+
+  function editorHtml(card) {
+    var m = card.model;
+    var key = ' data-key="' + esc(card.key) + '"';
+    var groups = m.groups.map(function (g) {
+      var shown = g.on ? g.items.filter(function (it) { return it.visible; }).length : 0;
+      return '<div class="ed-group' + (g.on ? '' : ' off') + '">' +
+        '<div class="ed-head">' +
+          '<button type="button" class="switch' + (g.on ? ' on' : '') + '" data-action="group"' + key +
+            ' data-id="' + g.id + '" title="' + g.label + ' 전체 보이기/숨기기"><i></i></button>' +
+          '<span class="ed-title">' + g.label + '</span>' +
+          '<span class="ed-count">' + shown + '/' + g.items.length + '</span>' +
+          (g.on
+            ? '<button type="button" class="ed-link" data-action="all"' + key + ' data-id="' + g.id + '">전체 선택</button>' +
+              '<button type="button" class="ed-link" data-action="none"' + key + ' data-id="' + g.id + '">전체 해제</button>'
+            : '<span class="ed-off">숨김</span>') +
+        '</div>' +
+        (g.on ? '<ul class="chips">' + g.items.map(function (it) { return editChip(card, g, it); }).join('') + '</ul>' : '') +
+      '</div>';
+    }).join('');
+
+    return '<div class="editor">' +
+      '<div class="ed-top">' +
+        '<span class="ed-help">표시할 항목을 누르세요 <span class="reg">★</span> 인게임 스케줄러 등록</span>' +
+        (m.customized ? '<button type="button" class="ed-link" data-action="reset"' + key + '>기본값으로</button>' : '') +
+        '<button type="button" class="ed-done" data-action="edit"' + key + '>완료</button>' +
+      '</div>' +
+      (groups || '<div class="card-msg">스케줄러 항목이 없습니다</div>') +
+    '</div>';
+  }
+
   function cardHtml(card, cfg) {
     var m = card.model;
     var complete = m && m.count.all.total > 0 && m.count.all.done === m.count.all.total;
     var pct = m && m.count.all.total ? Math.round(m.count.all.done / m.count.all.total * 100) : 0;
     var cls = ['card'];
-    if (card.collapsed) cls.push('collapsed');
+    if (card.collapsed && !card.editing) cls.push('collapsed');
+    if (card.editing) cls.push('editing');
     if (complete) cls.push('complete');
     if (card.loading) cls.push('loading');
     if (!m) cls.push('empty');
@@ -190,17 +237,21 @@
         '</div>' +
         (complete ? '<span class="badge-clear">ALL CLEAR</span>'
           : m ? '<div class="tally">' + tally('일일', m.count.daily) + tally('주간', m.count.weekly) + tally('보스', m.count.boss) + '</div>' : '') +
+        (m ? '<button type="button" class="card-edit' + (card.editing ? ' on' : '') + '" data-action="edit" data-key="' + esc(card.key) +
+          '" title="표시할 항목 고르기">' + ICON.edit + '</button>' : '') +
       '</div>';
 
     var body = '';
-    if (m) {
+    if (m && card.editing) {
+      body = editorHtml(card);
+    } else if (m) {
       var opts = { hideDone: cfg.hideDone };
       var bossNote = m.bossLimit ? '주간 클리어 ' + m.bossClear + '/' + m.bossLimit : '';
       body = section('일일', m.daily, m.count.daily, opts) +
         section('주간', m.weekly, m.count.weekly, opts) +
         section('보스', m.boss, m.count.boss, { hideDone: cfg.hideDone, boss: true, note: bossNote });
-      if (!body) body = '<div class="card-msg">스케줄러에 표시할 항목이 없습니다</div>';
-      if (m.showingAll && !cfg.showAll && m.registeredCount === 0) {
+      if (!body) body = '<div class="card-msg">표시할 항목이 없습니다. ✎ 버튼으로 고르세요</div>';
+      if (m.showingAll && !cfg.showAll && m.registeredCount === 0 && !m.customized) {
         body = '<div class="card-hint">인게임 스케줄러에 등록된 항목이 없어 전체 항목을 표시합니다</div>' + body;
       }
     } else if (card.error) {
@@ -292,8 +343,13 @@
 
   function init(handlers) {
     $('cards').addEventListener('click', function (e) {
-      var head = e.target.closest('[data-action="toggle"]');
-      if (head) handlers.onToggle(head.getAttribute('data-key'));
+      var el = e.target.closest('[data-action]');
+      if (!el) return;
+      var action = el.getAttribute('data-action');
+      var key = el.getAttribute('data-key');
+      if (action === 'toggle') handlers.onToggle(key);
+      else if (action === 'edit') handlers.onEdit(key);
+      else handlers.onSelect(key, action, el.getAttribute('data-id'));
     });
     $('cards').addEventListener('scroll', updateOverflow, { passive: true });
     $('btn-refresh').addEventListener('click', function () { handlers.onRefresh(); });

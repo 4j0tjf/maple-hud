@@ -34,7 +34,8 @@
     syncing: false,
     lastSync: 0,
     demo: false,
-    paused: false
+    paused: false,
+    editing: null    // 표시 항목을 고르는 중인 캐릭터 key
   };
   var syncTimer = null;
   var pending = null;
@@ -320,12 +321,20 @@
     return pref.v;
   }
 
+  // 캐릭터별 표시 항목 선택 { groups, items } (scheduler.normalize 참고)
+  function selectionOf(key) {
+    return store.get('sel:' + key);
+  }
+
   function toCards(cfg) {
     var now = Date.now();
     return state.chars.map(function (c) {
-      var model = c.body ? scheduler.normalize(c.body, c.fetchedAt || 0, now, { showAll: cfg.showAll }) : null;
-      var basic = c.basic || {};
       var key = c.ocid || c.name;
+      var model = c.body ? scheduler.normalize(c.body, c.fetchedAt || 0, now, {
+        showAll: cfg.showAll,
+        selection: selectionOf(key)
+      }) : null;
+      var basic = c.basic || {};
       var complete = model && model.count.all.total > 0 && model.count.all.done === model.count.all.total;
       var pref = collapsedPref(key);
       return {
@@ -339,6 +348,7 @@
         model: model,
         loading: c.loading,
         error: c.error,
+        editing: state.editing === key && !!model,
         collapsed: pref != null ? pref : !!(cfg.collapseDone && complete)
       };
     });
@@ -371,10 +381,30 @@
     });
   }
 
+  function findCard(key) {
+    return toCards(config.get()).filter(function (c) { return c.key === key; })[0];
+  }
+
   function toggleCard(key) {
-    var card = toCards(config.get()).filter(function (c) { return c.key === key; })[0];
-    if (!card) return;
+    var card = findCard(key);
+    if (!card || card.editing) return;
     store.set('collapse:' + key, { v: !card.collapsed, day: time.lastReset(time.RESET.DAILY, Date.now()) });
+    render();
+  }
+
+  function toggleEdit(key) {
+    state.editing = state.editing === key ? null : key;
+    render();
+  }
+
+  function editSelection(key, action, id) {
+    if (action === 'reset') {
+      store.remove('sel:' + key);
+    } else {
+      var card = findCard(key);
+      if (!card || !card.model) return;
+      store.set('sel:' + key, scheduler.editSelection(selectionOf(key), card.model, action, id));
+    }
     render();
   }
 
@@ -430,7 +460,13 @@
       onOpen: function () { if (overlay) overlay.setFocusable(true); },
       onClose: function () { if (overlay) overlay.setFocusable(false); }
     });
-    hud.init({ onToggle: toggleCard, onRefresh: manualRefresh, onSettings: MH.settings.open });
+    hud.init({
+      onToggle: toggleCard,
+      onEdit: toggleEdit,
+      onSelect: editSelection,
+      onRefresh: manualRefresh,
+      onSettings: MH.settings.open
+    });
     hud.applyStyle(config.get());
     render();
 
