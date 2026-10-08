@@ -63,18 +63,7 @@
     return qs ? url + '?' + qs : url;
   }
 
-  // 오버레이 앱에서는 메인 프로세스가 대신 요청한다 (브라우저 CORS 제한을 받지 않음)
   function httpGet(url, headers, signal) {
-    var overlay = root.mapleOverlay;
-    if (overlay && overlay.httpGet) {
-      return overlay.httpGet(url, headers).then(function (r) {
-        return {
-          ok: r.status >= 200 && r.status < 300,
-          status: r.status,
-          text: function () { return Promise.resolve(r.body); }
-        };
-      });
-    }
     return fetch(url, { headers: headers, signal: signal, cache: 'no-store' });
   }
 

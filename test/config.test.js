@@ -44,12 +44,10 @@ test('색상과 파일 경로 변환', () => {
   assert.equal(config.toFileUrl('bg/sky.jpg'), 'bg/sky.jpg');
 });
 
-test('설정창 항목: 오버레이 앱에서는 배경·흐림 설정을 숨긴다', () => {
-  const all = config.uiFields(false).map((f) => f.key);
-  const overlay = config.uiFields(true).map((f) => f.key);
+test('설정창 항목', () => {
+  const all = config.uiFields().map((f) => f.key);
   assert.ok(all.includes('bgtype') && all.includes('panelblur'));
-  assert.ok(!overlay.includes('bgtype') && !overlay.includes('bgdim') && !overlay.includes('panelblur'));
-  assert.ok(overlay.includes('apikey') && overlay.includes('alignx'));
+  assert.ok(all.includes('apikey') && all.includes('alignx'));
   // 파일 선택은 브라우저 설정창에서 경로를 얻을 수 없으므로 제외
   assert.ok(!all.includes('bgimage') && !all.includes('bgvideo'));
   assert.ok(config.dataKeys.includes('apiKey') && !config.dataKeys.includes('opacity'));

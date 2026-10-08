@@ -454,12 +454,7 @@
     if (!config.isWE()) config.loadBrowserSettings();
     config.loadUrlParams();
 
-    var overlay = window.mapleOverlay;
-    MH.settings.init({
-      // 오버레이 앱 창은 평소엔 포커스를 받지 않으므로, 설정창을 여는 동안만 키보드 입력을 받게 한다
-      onOpen: function () { if (overlay) overlay.setFocusable(true); },
-      onClose: function () { if (overlay) overlay.setFocusable(false); }
-    });
+    MH.settings.init();
     hud.init({
       onToggle: toggleCard,
       onEdit: toggleEdit,

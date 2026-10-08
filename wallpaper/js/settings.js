@@ -1,5 +1,5 @@
 /*
- * 설정창 (브라우저 · 오버레이 앱용). Wallpaper Engine에서는 배경화면 속성 패널을 쓴다.
+ * 설정창 (브라우저용). Wallpaper Engine에서는 배경화면 속성 패널을 쓴다.
  * 항목은 config.js의 FIELDS에서 만든다. 배치·투명도 같은 화면 설정은 바꾸는 즉시 미리 보여주고,
  * API 키처럼 다시 동기화가 필요한 설정은 저장할 때 적용한다.
  */
@@ -56,7 +56,7 @@
   }
 
   function build() {
-    fields = config.uiFields(config.isOverlay());
+    fields = config.uiFields();
     byKey = {};
     fields.forEach(function (f) { byKey[f.key] = f; });
     $('settings-fields').innerHTML = GROUPS.map(function (g) {

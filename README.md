@@ -21,8 +21,8 @@ Wallpaper Engine 배경화면 위에 반투명 HUD로 띄워줍니다.
 |  | ① 오버레이 앱 (추천) | ② Wallpaper Engine 웹 배경화면 |
 | --- | --- | --- |
 | 지금 쓰는 배경화면 | **그대로 유지** (장면 · 동영상 · 웹 모두, 효과 포함) | HUD가 배경화면이 됨. 뒤에는 이미지 · 동영상만 깔 수 있음 |
-| 설치 | exe 하나 실행 | `myprojects`에 폴더 복사 |
-| 설정 | 패널의 ⚙ 버튼 | Wallpaper Engine 속성 패널 |
+| 설치 | 압축 풀고 exe 실행 | `myprojects`에 폴더 복사 |
+| 설정 | 설정 창 (패널의 톱니바퀴 버튼 · 트레이 메뉴) | Wallpaper Engine 속성 패널 |
 | 패널 뒤 흐림 효과 | 없음 | 있음 |
 | CORS 문제 | 생기지 않음 | 환경에 따라 프록시가 필요할 수 있음 |
 
@@ -31,16 +31,23 @@ Wallpaper Engine은 배경화면 두 개를 겹쳐 띄울 수 없습니다. 그�
 
 ## ① 오버레이 앱
 
+Windows 전용 네이티브 앱입니다. Windows 10/11에 기본으로 들어 있는 .NET Framework 4.8로 동작해서
+따로 설치할 것이 없습니다. (64비트 Windows 10 1903 이상)
+
 ### 설치
 
-1. 실행 파일을 받습니다. 둘 중 편한 방법을 쓰세요.
-   - **빌드된 파일 받기**: GitHub 저장소의 `Actions` 탭 → `Overlay app` → 가장 최근 실행 → 아래쪽 `Artifacts`의
-     `MapleSchedulerHUD-portable`을 내려받아 압축을 풉니다. (GitHub 로그인 필요)
-   - **직접 빌드**: [Node.js](https://nodejs.org)를 설치하고 `overlay` 폴더에서 `npm install` → `npm run dist`.
-     `overlay\dist\MapleSchedulerHUD-1.0.0-portable.exe`가 생깁니다. 빌드 없이 바로 띄우려면 `npm start`.
-2. `MapleSchedulerHUD-…-portable.exe`를 원하는 폴더에 두고 실행합니다.
-   서명되지 않은 프로그램이라 Windows SmartScreen 경고가 뜨면 `추가 정보 → 실행`을 누르세요.
-3. 바탕화면 오른쪽 위에 HUD가 뜹니다. 패널 위쪽 **⚙** 버튼을 눌러 API 키를 입력하고 저장하세요.
+1. 실행 파일을 받습니다.
+   - **빌드된 파일 받기**: GitHub 저장소의 `Actions` 탭 → `CI` → 가장 최근 실행 → 아래쪽 `Artifacts`의
+     `MapleSchedulerHUD`를 내려받아 압축을 풉니다. (GitHub 로그인 필요)
+   - **직접 빌드**: [.NET 8 SDK](https://dotnet.microsoft.com/download)를 설치하고
+     `dotnet build native/src/MapleHud -c Release`. 결과는 `native\src\MapleHud\bin\Release\net48\`에 생깁니다.
+2. `MapleSchedulerHUD` 폴더를 원하는 곳에 두고 안의 `MapleSchedulerHUD.exe`를 실행합니다.
+   - 같이 있는 dll 파일과 `fonts` 폴더가 필요하니 **폴더째** 두세요.
+   - 서명되지 않은 프로그램이라 Windows SmartScreen 경고가 뜨면 `추가 정보 → 실행`을 누르세요.
+3. 바탕화면 오른쪽 위에 HUD가 뜹니다. 패널 위쪽 **톱니바퀴** 버튼을 눌러 API 키를 입력하고 저장하세요.
+
+> 예전 Electron 버전(`MapleSchedulerHUD-1.0.0-portable.exe`)을 쓰고 있었다면 종료하고 지워도 됩니다.
+> 설정은 옮겨지지 않으니 API 키와 캐릭터별 표시 항목을 다시 정해 주세요.
 
 ### 사용법
 
@@ -53,8 +60,11 @@ Wallpaper Engine은 배경화면 두 개를 겹쳐 띄울 수 없습니다. 그�
 - HUD 패널 밖을 클릭하면 아래에 있는 바탕화면 · 창으로 그대로 전달됩니다. 바탕화면 아이콘도 평소처럼 쓸 수 있습니다.
 - HUD를 클릭해도 다른 창 위로 튀어나오지 않습니다. 다른 창을 열면 그 창이 HUD를 덮습니다.
   항상 보이게 하려면 트레이 메뉴의 `항상 다른 창 위에 표시`를 켜세요.
+- 전체 화면 게임 중에는 HUD를 다시 그리지도, API를 부르지도 않습니다. 게임을 끄면 밀린 갱신을 합니다.
 - `Win + D`(바탕화면 보기)를 누른 뒤 HUD가 안 보이면 트레이 아이콘을 클릭하세요.
-- 설정과 캐시는 `%APPDATA%\Maple Scheduler HUD\`에 저장됩니다.
+- 설정 창에서 배치 · 크기 · 투명도 · 색을 바꾸면 저장하기 전에 HUD에 바로 보여 줍니다. 취소하면 되돌립니다.
+- 설정과 캐시는 `%APPDATA%\MapleSchedulerHUD\`(settings.json, store.json), 캐릭터 이미지는
+  `%LOCALAPPDATA%\MapleSchedulerHUD\avatars\`에 저장됩니다. 문제가 생기면 같은 곳의 `error.log`를 확인하세요.
 
 ## ② Wallpaper Engine 웹 배경화면
 

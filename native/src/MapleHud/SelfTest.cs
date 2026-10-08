@@ -13,6 +13,22 @@ namespace MapleHud
     /// </summary>
     internal static class SelfTest
     {
+        // CI 로그로 옮기기 쉽게 어두운 배경에 합쳐 작은 JPEG로도 남긴다
+        private static void SavePreviewJpeg(string pngPath, string jpgPath)
+        {
+            using (var src = SkiaSharp.SKBitmap.Decode(pngPath))
+            using (var surface = SkiaSharp.SKSurface.Create(new SkiaSharp.SKImageInfo(src.Width * 3 / 4, src.Height * 3 / 4)))
+            {
+                surface.Canvas.Clear(new SkiaSharp.SKColor(0x40, 0x58, 0x78));
+                surface.Canvas.Scale(0.75f);
+                using (var image = SkiaSharp.SKImage.FromBitmap(src))
+                    surface.Canvas.DrawImage(image, 0, 0, new SkiaSharp.SKSamplingOptions(SkiaSharp.SKFilterMode.Linear, SkiaSharp.SKMipmapMode.None), null);
+                using (var img = surface.Snapshot())
+                using (var data = img.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 72))
+                    File.WriteAllBytes(jpgPath, data.ToArray());
+            }
+        }
+
         public static int Run(string outPath, int seconds)
         {
             int code = 1;
@@ -27,6 +43,7 @@ namespace MapleHud
                     try
                     {
                         var report = app.SelfTestReport(outPath);
+                        SavePreviewJpeg(outPath, outPath + ".jpg");
                         GC.Collect();
                         GC.WaitForPendingFinalizers();
                         var p = Process.GetCurrentProcess();

@@ -11,8 +11,8 @@
 
   /*
    * [WE 속성 키, 설정 키, 타입, 기본값, 설정창 정보]
-   * 설정창 정보: group/label, input(range·number·password·select·color), data(바뀌면 다시 동기화),
-   *             noOverlay(오버레이 앱에서는 의미 없음). 없으면 설정창에 나오지 않는다.
+   * 설정창 정보: group/label, input(range·number·password·select·color), data(바뀌면 다시 동기화).
+   *             없으면 설정창에 나오지 않는다.
    */
   var FIELDS = [
     ['apikey', 'apiKey', 'text', '', { group: 'API', label: '넥슨 Open API 키', input: 'password', data: true }],
@@ -35,17 +35,17 @@
     ['offsetx', 'offsetX', 'num', 48, { group: '배치', label: '가로 여백 (px)', input: 'range', min: 0, max: 600, step: 2 }],
     ['offsety', 'offsetY', 'num', 48, { group: '배치', label: '세로 여백 (px)', input: 'range', min: 0, max: 600, step: 2 }],
     ['panelopacity', 'opacity', 'num', 55, { group: '패널', label: '배경 불투명도 (%)', input: 'range', min: 0, max: 100 }],
-    ['panelblur', 'blur', 'num', 14, { group: '패널', label: '뒤 배경 흐림 (px)', input: 'range', min: 0, max: 40, noOverlay: true }],
+    ['panelblur', 'blur', 'num', 14, { group: '패널', label: '뒤 배경 흐림 (px)', input: 'range', min: 0, max: 40 }],
     ['accentcolor', 'accent', 'color', '#ffb547', { group: '패널', label: '강조 색상', input: 'color' }],
-    ['bgtype', 'bgType', 'combo', 'default', { group: '배경', label: '종류', input: 'select', noOverlay: true,
+    ['bgtype', 'bgType', 'combo', 'default', { group: '배경', label: '종류', input: 'select',
       options: [['default', '기본 그라데이션'], ['image', '이미지'], ['video', '동영상'], ['color', '단색']] }],
     ['bgimage', 'bgImage', 'file', ''],
     ['bgvideo', 'bgVideo', 'file', ''],
-    ['bgurl', 'bgUrl', 'file', '', { group: '배경', label: '이미지·동영상 URL 또는 파일 경로', noOverlay: true }],
-    ['bgfit', 'bgFit', 'combo', 'cover', { group: '배경', label: '맞춤', input: 'select', noOverlay: true,
+    ['bgurl', 'bgUrl', 'file', '', { group: '배경', label: '이미지·동영상 URL 또는 파일 경로' }],
+    ['bgfit', 'bgFit', 'combo', 'cover', { group: '배경', label: '맞춤', input: 'select',
       options: [['cover', '화면 채우기 (잘림)'], ['contain', '전체 보이기'], ['fill', '늘이기']] }],
-    ['bgcolor', 'bgColor', 'color', '#141821', { group: '배경', label: '색상 (단색 / 여백)', input: 'color', noOverlay: true }],
-    ['bgdim', 'bgDim', 'num', 0, { group: '배경', label: '어둡게 (%)', input: 'range', min: 0, max: 90, noOverlay: true }]
+    ['bgcolor', 'bgColor', 'color', '#141821', { group: '배경', label: '색상 (단색 / 여백)', input: 'color' }],
+    ['bgdim', 'bgDim', 'num', 0, { group: '배경', label: '어둡게 (%)', input: 'range', min: 0, max: 90 }]
   ];
 
   var byWeKey = {};
@@ -112,18 +112,13 @@
   }
 
   // 설정창에 보여줄 항목 [{ key(WE 키), cfgKey, type, ui }]
-  function uiFields(overlay) {
+  function uiFields() {
     return FIELDS.filter(function (f) {
-      return f[4] && !(overlay && f[4].noOverlay);
+      return !!f[4];
     }).map(function (f) {
       return { key: f[0], cfgKey: f[1], type: f[2], ui: f[4] };
     });
   }
-
-  // Electron 오버레이 앱(overlay/)에서 열렸는지
-  var isOverlay = !!root.mapleOverlay;
-  // 오버레이 앱은 투명 창이라 뒤 배경을 흐리게 할 수 없어서, 글자가 잘 보이도록 패널을 조금 더 진하게 시작한다
-  if (isOverlay) defaults.opacity = 70;
 
   var cfg = {};
   Object.keys(defaults).forEach(function (k) { cfg[k] = defaults[k]; });
@@ -201,7 +196,6 @@
     uiFields: uiFields,
     dataKeys: dataKeys,
     isWE: function () { return isWE; },
-    isOverlay: function () { return isOverlay; },
     isWEReady: function () { return weReady; },
     onChange: function (fn) { listeners.push(fn); },
     onPause: function (fn) { pauseListeners.push(fn); },
