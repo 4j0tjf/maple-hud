@@ -1,0 +1,41 @@
+name: Overlay app
+
+on:
+  push:
+    paths:
+      - 'overlay/**'
+      - 'wallpaper/**'
+      - 'test/**'
+      - '.github/workflows/overlay.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+
+  build-windows:
+    needs: test
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: overlay
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: overlay/package-lock.json
+      - run: npm ci
+      - run: npx electron-builder --win --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MapleSchedulerHUD-portable
+          path: overlay/dist/*.exe
+          if-no-files-found: error

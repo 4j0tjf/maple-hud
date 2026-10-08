@@ -6,43 +6,54 @@
 (function (root) {
   'use strict';
 
-  // [WE 속성 키, 설정 키, 타입, 기본값]
+  var ALIGN_X = [['left', '왼쪽'], ['center', '가운데'], ['right', '오른쪽']];
+  var ALIGN_Y = [['top', '위'], ['center', '가운데'], ['bottom', '아래']];
+
+  /*
+   * [WE 속성 키, 설정 키, 타입, 기본값, 설정창 정보]
+   * 설정창 정보: group/label, input(range·number·password·select·color), data(바뀌면 다시 동기화),
+   *             noOverlay(오버레이 앱에서는 의미 없음). 없으면 설정창에 나오지 않는다.
+   */
   var FIELDS = [
-    ['apikey', 'apiKey', 'text', ''],
-    ['characters', 'characters', 'text', ''],
-    ['minlevel', 'minLevel', 'num', 200],
-    ['maxchars', 'maxChars', 'num', 8],
-    ['refreshmin', 'refreshMin', 'num', 15],
-    ['showall', 'showAll', 'bool', false],
-    ['hidedone', 'hideDone', 'bool', false],
-    ['collapsedone', 'collapseDone', 'bool', true],
-    ['showavatar', 'showAvatar', 'bool', true],
-    ['columns', 'columns', 'num', 1],
-    ['cardwidth', 'cardWidth', 'num', 400],
-    ['uiscale', 'scale', 'num', 100],
-    ['alignx', 'alignX', 'combo', 'right'],
-    ['aligny', 'alignY', 'combo', 'top'],
-    ['offsetx', 'offsetX', 'num', 48],
-    ['offsety', 'offsetY', 'num', 48],
-    ['panelopacity', 'opacity', 'num', 55],
-    ['panelblur', 'blur', 'num', 14],
-    ['accentcolor', 'accent', 'color', '#ffb547'],
-    ['bgtype', 'bgType', 'combo', 'default'],
+    ['apikey', 'apiKey', 'text', '', { group: 'API', label: '넥슨 Open API 키', input: 'password', data: true }],
+    ['characters', 'characters', 'text', '', { group: 'API', label: '캐릭터 이름 (쉼표로 구분, 비우면 계정에서 자동 선택)', data: true }],
+    ['minlevel', 'minLevel', 'num', 200, { group: 'API', label: '자동 선택 최소 레벨', input: 'number', min: 0, max: 300, data: true }],
+    ['maxchars', 'maxChars', 'num', 8, { group: 'API', label: '자동 선택 최대 캐릭터 수', input: 'number', min: 1, max: 20, data: true }],
+    ['refreshmin', 'refreshMin', 'num', 15, { group: 'API', label: '갱신 주기 (분)', input: 'number', min: 5, max: 180 }],
+    ['apibase', 'baseUrl', 'text', '', { group: 'API', label: '프록시 주소 (보통 비워두세요)', data: true }],
+    ['demomode', 'demo', 'bool', false, { group: 'API', label: '데모 데이터로 보기', data: true }],
+    ['showall', 'showAll', 'bool', false, { group: '표시', label: '스케줄러에 등록 안 된 항목도 표시' }],
+    ['hidedone', 'hideDone', 'bool', false, { group: '표시', label: '완료한 항목 숨기기' }],
+    ['collapsedone', 'collapseDone', 'bool', true, { group: '표시', label: '모두 완료한 캐릭터 접기' }],
+    ['showavatar', 'showAvatar', 'bool', true, { group: '표시', label: '캐릭터 이미지·경험치 표시', data: true }],
+    ['columns', 'columns', 'num', 1, { group: '배치', label: '열 개수', input: 'range', min: 1, max: 4 }],
+    ['cardwidth', 'cardWidth', 'num', 400, { group: '배치', label: '카드 너비 (px)', input: 'range', min: 280, max: 720, step: 10 }],
+    ['uiscale', 'scale', 'num', 100, { group: '배치', label: '크기 (%)', input: 'range', min: 50, max: 250, step: 5 }],
+    ['alignx', 'alignX', 'combo', 'right', { group: '배치', label: '가로 위치', input: 'select', options: ALIGN_X }],
+    ['aligny', 'alignY', 'combo', 'top', { group: '배치', label: '세로 위치', input: 'select', options: ALIGN_Y }],
+    ['offsetx', 'offsetX', 'num', 48, { group: '배치', label: '가로 여백 (px)', input: 'range', min: 0, max: 600, step: 2 }],
+    ['offsety', 'offsetY', 'num', 48, { group: '배치', label: '세로 여백 (px)', input: 'range', min: 0, max: 600, step: 2 }],
+    ['panelopacity', 'opacity', 'num', 55, { group: '패널', label: '배경 불투명도 (%)', input: 'range', min: 0, max: 100 }],
+    ['panelblur', 'blur', 'num', 14, { group: '패널', label: '뒤 배경 흐림 (px)', input: 'range', min: 0, max: 40, noOverlay: true }],
+    ['accentcolor', 'accent', 'color', '#ffb547', { group: '패널', label: '강조 색상', input: 'color' }],
+    ['bgtype', 'bgType', 'combo', 'default', { group: '배경', label: '종류', input: 'select', noOverlay: true,
+      options: [['default', '기본 그라데이션'], ['image', '이미지'], ['video', '동영상'], ['color', '단색']] }],
     ['bgimage', 'bgImage', 'file', ''],
     ['bgvideo', 'bgVideo', 'file', ''],
-    ['bgurl', 'bgUrl', 'file', ''],
-    ['bgcolor', 'bgColor', 'color', '#141821'],
-    ['bgfit', 'bgFit', 'combo', 'cover'],
-    ['bgdim', 'bgDim', 'num', 0],
-    ['apibase', 'baseUrl', 'text', ''],
-    ['demomode', 'demo', 'bool', false]
+    ['bgurl', 'bgUrl', 'file', '', { group: '배경', label: '이미지·동영상 URL 또는 파일 경로', noOverlay: true }],
+    ['bgfit', 'bgFit', 'combo', 'cover', { group: '배경', label: '맞춤', input: 'select', noOverlay: true,
+      options: [['cover', '화면 채우기 (잘림)'], ['contain', '전체 보이기'], ['fill', '늘이기']] }],
+    ['bgcolor', 'bgColor', 'color', '#141821', { group: '배경', label: '색상 (단색 / 여백)', input: 'color', noOverlay: true }],
+    ['bgdim', 'bgDim', 'num', 0, { group: '배경', label: '어둡게 (%)', input: 'range', min: 0, max: 90, noOverlay: true }]
   ];
 
   var byWeKey = {};
   var defaults = {};
+  var dataKeys = [];
   FIELDS.forEach(function (f) {
     byWeKey[f[0]] = f;
     defaults[f[1]] = f[3];
+    if (f[4] && f[4].data) dataKeys.push(f[1]);
   });
   // URL에서 짧게 쓸 수 있는 별칭
   byWeKey.demo = byWeKey.demomode;
@@ -98,6 +109,20 @@
         return raw == null ? fallback : String(raw);
     }
   }
+
+  // 설정창에 보여줄 항목 [{ key(WE 키), cfgKey, type, ui }]
+  function uiFields(overlay) {
+    return FIELDS.filter(function (f) {
+      return f[4] && !(overlay && f[4].noOverlay);
+    }).map(function (f) {
+      return { key: f[0], cfgKey: f[1], type: f[2], ui: f[4] };
+    });
+  }
+
+  // Electron 오버레이 앱(overlay/)에서 열렸는지
+  var isOverlay = !!root.mapleOverlay;
+  // 오버레이 앱은 투명 창이라 뒤 배경을 흐리게 할 수 없어서, 글자가 잘 보이도록 패널을 조금 더 진하게 시작한다
+  if (isOverlay) defaults.opacity = 70;
 
   var cfg = {};
   Object.keys(defaults).forEach(function (k) { cfg[k] = defaults[k]; });
@@ -171,7 +196,11 @@
   root.MH.config = {
     defaults: defaults,
     get: function () { return cfg; },
+    set: function (values) { return apply(values, false); },
+    uiFields: uiFields,
+    dataKeys: dataKeys,
     isWE: function () { return isWE; },
+    isOverlay: function () { return isOverlay; },
     isWEReady: function () { return weReady; },
     onChange: function (fn) { listeners.push(fn); },
     onPause: function (fn) { pauseListeners.push(fn); },

@@ -1,0 +1,54 @@
+{
+  "name": "maple-hud-overlay",
+  "productName": "Maple Scheduler HUD",
+  "version": "1.0.0",
+  "description": "Wallpaper Engine 배경화면 위에 메이플스토리 스케줄러 HUD를 띄우는 투명 오버레이 앱",
+  "author": "maple-hud",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.4.5",
+    "electron-builder": "26.16.1"
+  },
+  "build": {
+    "appId": "io.github.maplehud.overlay",
+    "productName": "Maple Scheduler HUD",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "../wallpaper",
+        "to": "wallpaper",
+        "filter": [
+          "**/*",
+          "!project.json",
+          "!preview.jpg"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.png"
+    },
+    "portable": {
+      "artifactName": "MapleSchedulerHUD-${version}-portable.exe"
+    }
+  }
+}

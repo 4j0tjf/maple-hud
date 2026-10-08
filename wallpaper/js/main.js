@@ -370,52 +370,17 @@
     sync(true);
   }
 
-  /* ---------- 브라우저용 설정창 ---------- */
-
-  var SETTINGS_FIELDS = ['apikey', 'characters', 'apibase', 'refreshmin', 'demomode'];
-  var SETTINGS_TO_CFG = { apikey: 'apiKey', characters: 'characters', apibase: 'baseUrl', refreshmin: 'refreshMin', demomode: 'demo' };
-
-  function openSettings() {
-    var form = document.getElementById('settings-form');
-    var cfg = config.get();
-    SETTINGS_FIELDS.forEach(function (k) {
-      var el = form.elements[k];
-      var v = cfg[SETTINGS_TO_CFG[k]];
-      if (el.type === 'checkbox') el.checked = !!v;
-      else el.value = v == null ? '' : v;
-    });
-    document.getElementById('settings').hidden = false;
-  }
-
-  function initSettings() {
-    var dialog = document.getElementById('settings');
-    var form = document.getElementById('settings-form');
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var values = {};
-      SETTINGS_FIELDS.forEach(function (k) {
-        var el = form.elements[k];
-        values[k] = el.type === 'checkbox' ? el.checked : el.value.trim();
-      });
-      config.saveBrowserSettings(values);
-      dialog.hidden = true;
-    });
-    document.getElementById('settings-cancel').addEventListener('click', function () { dialog.hidden = true; });
-  }
-
   /* ---------- 시작 ---------- */
 
-  var DATA_KEYS = ['apiKey', 'characters', 'minLevel', 'maxChars', 'baseUrl', 'demo'];
   var changeTimer = null;
 
   function onConfigChange(keys) {
     var cfg = config.get();
     hud.applyStyle(cfg);
     render();
-    var dataChanged = keys.some(function (k) { return DATA_KEYS.indexOf(k) >= 0; });
-    var avatarOn = keys.indexOf('showAvatar') >= 0 && cfg.showAvatar;
+    var dataChanged = keys.some(function (k) { return config.dataKeys.indexOf(k) >= 0; });
     if (keys.indexOf('refreshMin') >= 0 && !state.syncing) scheduleNext();
-    if (!dataChanged && !avatarOn) return;
+    if (!dataChanged) return;
     // WE에서 API 키를 타이핑하는 동안 매번 호출하지 않도록 잠시 기다린다
     clearTimeout(changeTimer);
     changeTimer = setTimeout(function () {
@@ -442,8 +407,13 @@
     if (!config.isWE()) config.loadBrowserSettings();
     config.loadUrlParams();
 
-    hud.init({ onToggle: toggleCard, onRefresh: manualRefresh, onSettings: openSettings });
-    initSettings();
+    var overlay = window.mapleOverlay;
+    MH.settings.init({
+      // 오버레이 앱 창은 평소엔 포커스를 받지 않으므로, 설정창을 여는 동안만 키보드 입력을 받게 한다
+      onOpen: function () { if (overlay) overlay.setFocusable(true); },
+      onClose: function () { if (overlay) overlay.setFocusable(false); }
+    });
+    hud.init({ onToggle: toggleCard, onRefresh: manualRefresh, onSettings: MH.settings.open });
     hud.applyStyle(config.get());
     render();
 
@@ -471,5 +441,6 @@
     start();
   }
 
+  MH.app = { refresh: manualRefresh, openSettings: function () { MH.settings.open(); } };
   init();
 })();

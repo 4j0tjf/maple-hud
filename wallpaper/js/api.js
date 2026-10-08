@@ -63,17 +63,28 @@
     return qs ? url + '?' + qs : url;
   }
 
+  // 오버레이 앱에서는 메인 프로세스가 대신 요청한다 (브라우저 CORS 제한을 받지 않음)
+  function httpGet(url, headers, signal) {
+    var overlay = root.mapleOverlay;
+    if (overlay && overlay.httpGet) {
+      return overlay.httpGet(url, headers).then(function (r) {
+        return {
+          ok: r.status >= 200 && r.status < 300,
+          status: r.status,
+          text: function () { return Promise.resolve(r.body); }
+        };
+      });
+    }
+    return fetch(url, { headers: headers, signal: signal, cache: 'no-store' });
+  }
+
   function fetchOnce(opts, path, params) {
     var controller = typeof AbortController === 'function' ? new AbortController() : null;
     var timer = controller ? setTimeout(function () { controller.abort(); }, TIMEOUT_MS) : null;
     var headers = { accept: 'application/json' };
     if (opts.apiKey) headers['x-nxopen-api-key'] = opts.apiKey;
 
-    return fetch(buildUrl(opts.baseUrl, path, params), {
-      headers: headers,
-      signal: controller ? controller.signal : undefined,
-      cache: 'no-store'
-    }).then(function (res) {
+    return httpGet(buildUrl(opts.baseUrl, path, params), headers, controller ? controller.signal : undefined).then(function (res) {
       return res.text().then(function (text) {
         var body = null;
         try { body = text ? JSON.parse(text) : null; } catch (e) { body = null; }
@@ -84,7 +95,7 @@
         return body;
       });
     }, function (e) {
-      if (e && e.name === 'AbortError') throw new ApiError('TIMEOUT');
+      if (e && (e.name === 'AbortError' || /abort|timeout/i.test(e.message || ''))) throw new ApiError('TIMEOUT');
       throw new ApiError('NETWORK', e && e.message);
     }).finally(function () {
       if (timer) clearTimeout(timer);

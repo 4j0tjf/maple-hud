@@ -219,7 +219,7 @@
     if (view.demo) {
       notices.push({ level: 'info', text: view.isWE
         ? '데모 데이터입니다. 배경화면 속성에서 넥슨 Open API 키를 입력하세요.'
-        : '데모 데이터입니다. 오른쪽 위 ⚙ 버튼에서 넥슨 Open API 키를 입력하세요.' });
+        : '데모 데이터입니다. 패널 위쪽 ⚙ 버튼에서 넥슨 Open API 키를 입력하세요.' });
     }
     if (view.notice) notices.push(view.notice);
     $('notice').innerHTML = notices.map(function (n) {
