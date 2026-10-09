@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -23,6 +24,8 @@ namespace MapleHud
             _http = http;
             _dir = dir;
         }
+
+        public int LoadedCount => _images.Values.Count(i => i != null);
 
         public SKImage Get(string url)
         {
@@ -56,7 +59,7 @@ namespace MapleHud
             if (img != null) Loaded?.Invoke();
         }
 
-        private static string Hash(string s)
+        internal static string Hash(string s)
         {
             using (var sha = SHA1.Create())
             {

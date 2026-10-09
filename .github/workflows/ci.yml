@@ -61,6 +61,16 @@ jobs:
           $p = Start-Process -FilePath $exe -ArgumentList '--selftest', $out, '6', 'settings' -Wait -PassThru
           Get-Content "$out.txt"
           if ($p.ExitCode -ne 0) { exit 1 }
+      - name: 자체 점검 (지난번 캐릭터·이미지 캐시가 있는 상태로 다시 켜기)
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          $env:MAPLEHUD_HOME = Join-Path $env:RUNNER_TEMP 'maplehud-cached'
+          $out = Join-Path $env:RUNNER_TEMP 'selftest-cached.png'
+          $exe = 'native/src/MapleHud/bin/Release/net48/MapleSchedulerHUD.exe'
+          $p = Start-Process -FilePath $exe -ArgumentList '--selftest', $out, '6', 'cached' -Wait -PassThru
+          if (Test-Path "$out.txt") { Get-Content "$out.txt" } else { "결과 파일 없음: 앱이 비정상 종료됨 (exit $($p.ExitCode))" }
+          if ($p.ExitCode -ne 0) { exit 1 }
       - name: 배포 폴더 만들기
         shell: pwsh
         run: |
@@ -84,3 +94,6 @@ jobs:
             ${{ runner.temp }}/selftest-settings.png
             ${{ runner.temp }}/selftest-settings.png.txt
             ${{ runner.temp }}/selftest-settings.png.jpg
+            ${{ runner.temp }}/selftest-cached.png
+            ${{ runner.temp }}/selftest-cached.png.txt
+            ${{ runner.temp }}/selftest-cached.png.jpg

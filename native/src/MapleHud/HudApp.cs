@@ -355,6 +355,8 @@ namespace MapleHud
             return _settingsForm;
         }
 
+        internal bool ShowsCachedCharacter => _view.Cards.Count > 0 && !_view.Demo && _view.Cards[0].Model != null && _avatars.LoadedCount > 0;
+
         /// <summary>설정 저장 뒤 상태: 파일에 저장됐는지, 창이 닫혔는지, 데모를 벗어나 동기화했는지, 알림</summary>
         internal string SettingsSaveReport(string expectedKey)
         {
@@ -374,7 +376,7 @@ namespace MapleHud
             var layout = _window.CurrentLayout;
             return "panel=" + layout.Width + "x" + layout.Height + " regions=" + layout.Regions.Count +
                 " edit=" + layout.Regions.Count(r => r.Action == "edit") + " cards=" + _view.Cards.Count +
-                " demo=" + _view.Demo + " font=" + _fonts.Regular.FamilyName;
+                " demo=" + _view.Demo + " avatars=" + _avatars.LoadedCount + " font=" + _fonts.Regular.FamilyName;
         }
 
         /* ---------- 마무리 ---------- */

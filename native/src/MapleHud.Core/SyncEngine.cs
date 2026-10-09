@@ -221,7 +221,7 @@ namespace MapleHud.Core
         }
 
         // 캐릭터 구성이 바뀌는 설정(키 끝자리, 이름 목록, 레벨 조건)
-        private static string TargetsSig(HudSettings s)
+        public static string TargetsSig(HudSettings s)
         {
             var key = s.ApiKey ?? "";
             return string.Join("|", key.Length > 8 ? key.Substring(key.Length - 8) : key, s.ApiBase, s.Characters, s.MinLevel, s.MaxChars);

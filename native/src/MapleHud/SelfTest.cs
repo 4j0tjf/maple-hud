@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
 using System.Windows.Forms;
+using MapleHud.Core;
 
 namespace MapleHud
 {
@@ -13,6 +16,8 @@ namespace MapleHud
     /// settings를 붙이면 설정 창에 API 키·캐릭터를 넣고 저장 버튼을 눌러서
     /// 저장·창 닫힘·동기화 시작·저장 알림을 확인한다 (접속할 수 없는 주소를 써서 실제 API는 부르지 않는다).
     ///   MapleSchedulerHUD.exe --selftest out.png 6 settings
+    /// cached를 붙이면 지난번에 받아 둔 캐릭터(스케줄러·이미지 캐시)가 있는 상태로 다시 켰을 때를 확인한다.
+    ///   MapleSchedulerHUD.exe --selftest out.png 6 cached
     /// </summary>
     internal static class SelfTest
     {
@@ -33,6 +38,48 @@ namespace MapleHud
         }
 
         private const string TestKey = "selftest-key";
+        private const string TestBase = "http://127.0.0.1:9";   // 접속할 수 없는 주소 (실제 API를 부르지 않게)
+
+        // 지난번 실행에서 캐릭터 하나를 받아 둔 것처럼 설정·캐시·캐릭터 이미지 파일을 만든다
+        private static void SeedCachedCharacter()
+        {
+            var home = Environment.GetEnvironmentVariable("MAPLEHUD_HOME");
+            if (string.IsNullOrEmpty(home)) throw new InvalidOperationException("cached selftest needs MAPLEHUD_HOME");
+            var now = KstTime.NowMs();
+            var demo = DemoData.Build(now)[0];
+            const string ocid = "selftest-ocid";
+            const string image = TestBase + "/avatar.png";
+
+            var settings = new HudSettings { ApiKey = TestKey, Characters = demo.Name, ApiBase = TestBase, ShowAvatar = true };
+            settings.Save(Path.Combine(home, "data", "settings.json"));
+
+            var store = new JsonStore(Path.Combine(home, "data", "store.json"));
+            store.Set("targets", new SyncEngine.LastTargets
+            {
+                Sig = SyncEngine.TargetsSig(settings),
+                List = new List<SyncEngine.Target> { new SyncEngine.Target { Name = demo.Name, Ocid = ocid, World = demo.World, Cls = demo.Cls, Level = demo.Level } }
+            });
+            store.SetCached("ocid:" + demo.Name, JsonSerializer.Serialize(ocid), now);
+            store.SetCached("sched:" + ocid, demo.Body, now);
+            store.SetCached("basic:" + ocid, JsonSerializer.Serialize(new Dictionary<string, object>
+            {
+                ["character_name"] = demo.Name,
+                ["character_level"] = demo.Level,
+                ["character_exp_rate"] = "61.20",
+                ["character_image"] = image
+            }), now);
+            store.Flush();
+
+            var dir = Path.Combine(home, "cache", "avatars");
+            Directory.CreateDirectory(dir);
+            using (var surface = SkiaSharp.SKSurface.Create(new SkiaSharp.SKImageInfo(96, 96)))
+            {
+                surface.Canvas.Clear(new SkiaSharp.SKColor(0x7c, 0xc7, 0xff));
+                using (var img = surface.Snapshot())
+                using (var data = img.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100))
+                    File.WriteAllBytes(Path.Combine(dir, AvatarCache.Hash(image) + ".png"), data.ToArray());
+            }
+        }
 
         public static int Run(string outPath, int seconds, string scenario = null)
         {
@@ -40,6 +87,11 @@ namespace MapleHud
             try
             {
                 Application.EnableVisualStyles();
+                if (scenario == "cached")
+                {
+                    SeedCachedCharacter();
+                    seconds = 3;
+                }
                 var app = new HudApp();
                 string saveReport = null;
                 if (scenario == "settings")
@@ -49,7 +101,7 @@ namespace MapleHud
                     {
                         save.Stop();
                         var form = app.OpenSettingsForTest();
-                        form.FillApiForTest(TestKey, "테스트캐릭터", "http://127.0.0.1:9");
+                        form.FillApiForTest(TestKey, "테스트캐릭터", TestBase);
                         form.SaveButton.PerformClick();
                     };
                     save.Start();
@@ -68,6 +120,8 @@ namespace MapleHud
                             if (!saveReport.StartsWith("ok")) throw new InvalidOperationException(saveReport);
                         }
                         var report = app.SelfTestReport(outPath) + (saveReport != null ? " | " + saveReport : "");
+                        // 캐시해 둔 캐릭터가 이미지와 함께 보여야 한다
+                        if (scenario == "cached" && !app.ShowsCachedCharacter) throw new InvalidOperationException(report);
                         SavePreviewJpeg(outPath, outPath + ".jpg");
                         GC.Collect();
                         GC.WaitForPendingFinalizers();
