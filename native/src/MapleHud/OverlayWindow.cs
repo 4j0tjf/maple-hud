@@ -12,6 +12,7 @@ namespace MapleHud
     /// - 픽셀마다 투명도가 있는 레이어드 창(UpdateLayeredWindow)이라 패널 모양 그대로 반투명하게 보인다.
     /// - 클릭해도 활성화되지 않아서(WS_EX_NOACTIVATE) 다른 창 위로 튀어나오거나 포커스를 뺏지 않는다.
     /// - 작업 표시줄과 Alt+Tab에 나오지 않는다(WS_EX_TOOLWINDOW).
+    /// - 마우스로 끌어서 옮길 수 있다. 몇 픽셀 이상 움직여야 끌기로 보고, 그때는 클릭을 무시한다.
     /// </summary>
     internal sealed class OverlayWindow : Form
     {
@@ -30,11 +31,23 @@ namespace MapleHud
         private bool _presenting;
         private bool _presentAgain;
 
+        // 마지막으로 올린 패널 위치·크기 (화면 픽셀)
+        private Point _pos;
+        private Size _size;
+
+        // 끌어서 옮기기
+        private const int DragThreshold = 5;
+        private Point? _pressAt;   // 누른 곳 (화면 좌표)
+        private Point _pressPos;   // 눌렀을 때 패널 위치
+        private bool _dragging;
+
         /// <summary>클릭한 영역 (action, key, id)</summary>
         public event Action<HitRegion> RegionClicked;
         /// <summary>마우스가 올라간 영역이나 카드가 바뀜</summary>
         public event Action HoverChanged;
         public event Action<float> Scrolled;
+        /// <summary>끌어서 옮기고 놓음 (놓은 자리의 화면 좌표)</summary>
+        public event Action<Rectangle> Dragged;
 
         public HitRegion Hover { get; private set; }
         public string HoverCard { get; private set; }
@@ -131,10 +144,9 @@ namespace MapleHud
             var screen = TargetScreen(s);
             var wa = screen.WorkingArea;
             float dpiScale = Native.DpiFor(Handle) / 96f;
-            if (!Visible) dpiScale = ScreenDpi(screen) / 96f;
+            if (!Visible) dpiScale = Native.DpiForScreen(screen) / 96f;
             _scale = dpiScale * s.Scale / 100f;
-            int offX = (int)Math.Round(s.OffsetX * dpiScale), offY = (int)Math.Round(s.OffsetY * dpiScale);
-            input.MaxHeight = Math.Max(160, (wa.Height - 2 * offY) / _scale);
+            input.MaxHeight = Math.Max(160, Placement.MaxHeight(s, wa.Height, dpiScale) / _scale);
             input.Hover = Hover;
             input.HoverCard = HoverCard;
 
@@ -157,8 +169,11 @@ namespace MapleHud
                 canvas.Flush();
             }
 
-            int x = s.AlignX == "left" ? wa.Left + offX : s.AlignX == "center" ? wa.Left + (wa.Width - w) / 2 : wa.Right - offX - w;
-            int y = s.AlignY == "top" ? wa.Top + offY : s.AlignY == "center" ? wa.Top + (wa.Height - h) / 2 : wa.Bottom - offY - h;
+            var (x, y) = Placement.Locate(s, wa.Left, wa.Top, wa.Width, wa.Height, w, h, dpiScale);
+            // 끄는 중에는 손으로 옮긴 자리에 둔다 (매초 다시 그려도 제자리로 튀지 않게)
+            if (_dragging) (x, y) = (_pos.X, _pos.Y);
+            _pos = new Point(x, y);
+            _size = new Size(w, h);
 
             var dst = new Native.POINT(x, y);
             var size = new Native.SIZE(w, h);
@@ -238,18 +253,38 @@ namespace MapleHud
             return Screen.PrimaryScreen;
         }
 
-        private static int ScreenDpi(Screen screen)
-        {
-            using (var g = Graphics.FromHwnd(IntPtr.Zero)) return (int)g.DpiX;
-        }
-
         /* ---------- 마우스 ---------- */
 
         private PointF ToCss(Point p) => new PointF(p.X / _scale, p.Y / _scale);
 
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            if (e.Button != MouseButtons.Left) return;
+            _pressAt = Cursor.Position;
+            _pressPos = _pos;
+            _dragging = false;
+            Capture = true;
+        }
+
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
+            if (_pressAt.HasValue && (e.Button & MouseButtons.Left) != 0)
+            {
+                var cur = Cursor.Position;
+                int dx = cur.X - _pressAt.Value.X, dy = cur.Y - _pressAt.Value.Y;
+                if (!_dragging && (Math.Abs(dx) >= DragThreshold || Math.Abs(dy) >= DragThreshold))
+                {
+                    _dragging = true;
+                    Cursor = Cursors.SizeAll;
+                }
+                if (_dragging)
+                {
+                    MoveTo(_pressPos.X + dx, _pressPos.Y + dy);
+                    return;
+                }
+            }
             if (_layout == null) return;
             var p = ToCss(e.Location);
             var hit = _layout.HitTest(p.X, p.Y);
@@ -274,10 +309,53 @@ namespace MapleHud
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
-            if (e.Button != MouseButtons.Left || _layout == null) return;
+            if (e.Button != MouseButtons.Left) return;
+            bool dragged = _dragging;
+            _pressAt = null;
+            EndDrag();
+            Capture = false;
+            if (dragged || _layout == null) return;
             var p = ToCss(e.Location);
             var hit = _layout.HitTest(p.X, p.Y);
             if (hit != null && hit.Action != "card") RegionClicked?.Invoke(hit);
+        }
+
+        protected override void OnMouseCaptureChanged(EventArgs e)
+        {
+            base.OnMouseCaptureChanged(e);
+            // 끄는 도중 다른 창이 마우스를 가져가면(Alt+Tab 등) 놓은 것으로 본다
+            if (_dragging && !Capture)
+            {
+                _pressAt = null;
+                EndDrag();
+            }
+        }
+
+        private void MoveTo(int x, int y)
+        {
+            _pos = new Point(x, y);
+            Native.SetWindowPos(Handle, IntPtr.Zero, x, y, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOZORDER | Native.SWP_NOACTIVATE);
+        }
+
+        private void EndDrag()
+        {
+            if (!_dragging) return;
+            _dragging = false;
+            Cursor = Cursors.Default;
+            Dragged?.Invoke(new Rectangle(_pos, _size));
+        }
+
+        internal Rectangle PanelRect => new Rectangle(_pos, _size);
+
+        /// <summary>자체 점검용: 마우스로 끈 것처럼 옮기고 놓는다. 놓은 자리를 돌려준다</summary>
+        internal Rectangle DragForTest(int dx, int dy)
+        {
+            _pressPos = _pos;
+            _dragging = true;
+            MoveTo(_pressPos.X + dx, _pressPos.Y + dy);
+            var dropped = PanelRect;
+            EndDrag();
+            return dropped;
         }
 
         protected override void OnMouseWheel(MouseEventArgs e)

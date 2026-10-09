@@ -67,6 +67,7 @@ namespace MapleHud
             _window.SetTopMost(_settings.AlwaysOnTop);
             _window.RegionClicked += OnRegionClicked;
             _window.HoverChanged += () => Invalidate(body: true);
+            _window.Dragged += OnDragged;
             _window.Scrolled += delta =>
             {
                 _scroll = Math.Max(0, Math.Min(_scroll + delta, _window.CurrentLayout?.MaxScroll ?? 0));
@@ -186,6 +187,19 @@ namespace MapleHud
             Invalidate(body: true, rebuild: true);
         }
 
+        // 끌어서 놓은 자리를 설정으로 저장한다 (놓은 모니터와 가까운 모서리 기준)
+        private void OnDragged(Rectangle rect)
+        {
+            var screen = Screen.FromRectangle(rect);
+            var wa = screen.WorkingArea;
+            var next = _settings.Clone();
+            next.Monitor = screen.DeviceName;
+            Placement.FromBox(next, rect.X, rect.Y, rect.Width, rect.Height, wa.X, wa.Y, wa.Width, wa.Height, Native.DpiForScreen(screen) / 96f);
+            ApplySettings(next, persist: true);
+            // 설정 창이 열려 있으면 그 칸도 맞춘다 (저장할 때 옛 위치로 되돌리지 않게)
+            _settingsForm?.SetPosition(next);
+        }
+
         /* ---------- 설정 ---------- */
 
         private void ShowSettings()
@@ -214,6 +228,7 @@ namespace MapleHud
             {
                 var form = _settingsForm;
                 _settingsForm = null;
+                _window.SetTopMost(_settings.AlwaysOnTop);
                 if (form.DialogResult != DialogResult.OK || form.Result == null) return;
                 try
                 {
@@ -232,13 +247,16 @@ namespace MapleHud
             };
             _settingsForm.Show();
             _settingsForm.Activate();
+            // 설정 창이 열려 있는 동안에는 HUD를 다른 창 위에 둔다
+            // (API 키를 복사하러 브라우저로 가도 미리보기가 가려지지 않게)
+            _window.SetTopMost(true);
         }
 
         private void ApplySettings(HudSettings next, bool persist)
         {
             bool topMostChanged = next.AlwaysOnTop != _settings.AlwaysOnTop;
             _settings = HudSettings.Sanitize(next.Clone());
-            _window.SetTopMost(_settings.AlwaysOnTop);
+            _window.SetTopMost(_settings.AlwaysOnTop || _settingsForm != null);
             _engine.UpdateSettings(_settings);
             if (persist)
             {
@@ -360,6 +378,23 @@ namespace MapleHud
         {
             ShowSettings();
             return _settingsForm;
+        }
+
+        internal bool HudTopMost => Native.IsTopMost(_window.Handle);
+
+        internal Rectangle DragForTest(int dx, int dy) => _window.DragForTest(dx, dy);
+
+        /// <summary>끌어서 옮긴 뒤: 놓은 자리가 저장되고 다시 그려도 그 자리에 있는지, 설정 창을 닫으면 맨 위 고정이 풀리는지</summary>
+        internal string DragReport(Rectangle dropped, bool topWhileOpen)
+        {
+            var saved = HudSettings.Load(SettingsPath);
+            var now = _window.PanelRect;
+            bool samePlace = Math.Abs(now.X - dropped.X) <= 2 && Math.Abs(now.Y - dropped.Y) <= 2;
+            bool persisted = saved.ToJson() == _settings.ToJson();
+            bool ok = samePlace && persisted && topWhileOpen && !HudTopMost && _settingsForm == null;
+            return (ok ? "ok" : "fail") + " dropped=" + dropped + " now=" + now + " persisted=" + persisted +
+                " align=" + saved.AlignX + "/" + saved.AlignY + " offset=" + saved.OffsetX + "," + saved.OffsetY +
+                " topWhileOpen=" + topWhileOpen + " topAfter=" + HudTopMost + " formClosed=" + (_settingsForm == null);
         }
 
         internal bool ShowsCachedCharacter => _view.Cards.Count > 0 && !_view.Demo && _view.Cards[0].Model != null && _avatars.LoadedCount > 0;

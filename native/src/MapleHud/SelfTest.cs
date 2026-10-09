@@ -18,6 +18,8 @@ namespace MapleHud
     ///   MapleSchedulerHUD.exe --selftest out.png 6 settings
     /// cached를 붙이면 지난번에 받아 둔 캐릭터(스케줄러·이미지 캐시)가 있는 상태로 다시 켰을 때를 확인한다.
     ///   MapleSchedulerHUD.exe --selftest out.png 6 cached
+    /// drag를 붙이면 설정 창을 연 채로 HUD를 끌어 옮기고 창을 닫아서, 놓은 자리가 저장·유지되는지 확인한다.
+    ///   MapleSchedulerHUD.exe --selftest out.png 6 drag
     /// </summary>
     internal static class SelfTest
     {
@@ -94,6 +96,22 @@ namespace MapleHud
                 }
                 var app = new HudApp();
                 string saveReport = null;
+                var dropped = System.Drawing.Rectangle.Empty;
+                bool topWhileOpen = false;
+                if (scenario == "drag")
+                {
+                    var drag = new Timer { Interval = 1500 };
+                    drag.Tick += (s, e) =>
+                    {
+                        drag.Stop();
+                        var form = app.OpenSettingsForTest();
+                        topWhileOpen = app.HudTopMost;
+                        dropped = app.DragForTest(-200, 0);
+                        form.Close();
+                    };
+                    drag.Start();
+                    seconds = 3;
+                }
                 if (scenario == "settings")
                 {
                     var save = new Timer { Interval = 1500 };
@@ -114,11 +132,9 @@ namespace MapleHud
                     timer.Stop();
                     try
                     {
-                        if (scenario == "settings")
-                        {
-                            saveReport = app.SettingsSaveReport(TestKey);
-                            if (!saveReport.StartsWith("ok")) throw new InvalidOperationException(saveReport);
-                        }
+                        if (scenario == "settings") saveReport = app.SettingsSaveReport(TestKey);
+                        if (scenario == "drag") saveReport = app.DragReport(dropped, topWhileOpen);
+                        if (saveReport != null && !saveReport.StartsWith("ok")) throw new InvalidOperationException(saveReport);
                         var report = app.SelfTestReport(outPath) + (saveReport != null ? " | " + saveReport : "");
                         // 캐시해 둔 캐릭터가 이미지와 함께 보여야 한다
                         if (scenario == "cached" && !app.ShowsCachedCharacter) throw new InvalidOperationException(report);

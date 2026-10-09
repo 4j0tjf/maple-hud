@@ -83,6 +83,9 @@ namespace MapleHud.Core
             File.Move(tmp, path);
         }
 
+        /// <summary>모서리에서 떨어진 거리의 최댓값 (DIP). 아주 넓은 모니터에서 끌어 옮겨도 담기게 넉넉히 둔다</summary>
+        public const int MaxOffset = 8000;
+
         /// <summary>범위를 벗어난 값을 바로잡는다 (직접 고친 설정 파일 대비)</summary>
         public static HudSettings Sanitize(HudSettings s)
         {
@@ -95,8 +98,8 @@ namespace MapleHud.Core
             s.Columns = Clamp(s.Columns, 1, 4);
             s.CardWidth = Clamp(s.CardWidth, 280, 720);
             s.Scale = Clamp(s.Scale, 50, 250);
-            s.OffsetX = Clamp(s.OffsetX, 0, 2000);
-            s.OffsetY = Clamp(s.OffsetY, 0, 2000);
+            s.OffsetX = Clamp(s.OffsetX, 0, MaxOffset);
+            s.OffsetY = Clamp(s.OffsetY, 0, MaxOffset);
             s.Opacity = Clamp(s.Opacity, 0, 100);
             if (s.AlignX != "left" && s.AlignX != "center") s.AlignX = "right";
             if (s.AlignY != "center" && s.AlignY != "bottom") s.AlignY = "top";

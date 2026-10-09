@@ -27,6 +27,7 @@ namespace MapleHud
         public static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
         public const uint SWP_NOSIZE = 0x0001;
         public const uint SWP_NOMOVE = 0x0002;
+        public const uint SWP_NOZORDER = 0x0004;
         public const uint SWP_NOACTIVATE = 0x0010;
         public const uint SWP_SHOWWINDOW = 0x0040;
 
@@ -91,6 +92,36 @@ namespace MapleHud
 
         [DllImport("shell32.dll")]
         public static extern int SHQueryUserNotificationState(out int state);
+
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hwnd, int index);
+
+        public static bool IsTopMost(IntPtr hwnd) => (GetWindowLong(hwnd, -20 /* GWL_EXSTYLE */) & WS_EX_TOPMOST) != 0;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromPoint(POINT pt, uint flags);
+
+        [DllImport("shcore.dll")]
+        private static extern int GetDpiForMonitor(IntPtr monitor, int dpiType, out uint dpiX, out uint dpiY);
+
+        /// <summary>그 모니터의 DPI (모니터마다 배율이 다를 수 있다)</summary>
+        public static int DpiForScreen(System.Windows.Forms.Screen screen)
+        {
+            try
+            {
+                var b = screen.Bounds;
+                var monitor = MonitorFromPoint(new POINT(b.Left + b.Width / 2, b.Top + b.Height / 2), 2 /* MONITOR_DEFAULTTONEAREST */);
+                if (GetDpiForMonitor(monitor, 0 /* MDT_EFFECTIVE_DPI */, out var dpi, out _) == 0 && dpi > 0) return (int)dpi;
+            }
+            catch (DllNotFoundException)
+            {
+                // Windows 8.1 이전
+            }
+            catch (EntryPointNotFoundException)
+            {
+            }
+            using (var g = System.Drawing.Graphics.FromHwnd(IntPtr.Zero)) return (int)g.DpiX;
+        }
 
         // QUNS_BUSY(전체 화면 앱), QUNS_RUNNING_D3D_FULL_SCREEN(전체 화면 게임), QUNS_PRESENTATION_MODE
         public static bool FullscreenAppRunning()

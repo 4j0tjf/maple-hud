@@ -71,6 +71,16 @@ jobs:
           $p = Start-Process -FilePath $exe -ArgumentList '--selftest', $out, '6', 'cached' -Wait -PassThru
           if (Test-Path "$out.txt") { Get-Content "$out.txt" } else { "결과 파일 없음: 앱이 비정상 종료됨 (exit $($p.ExitCode))" }
           if ($p.ExitCode -ne 0) { exit 1 }
+      - name: 자체 점검 (설정 창을 연 채로 HUD를 끌어서 옮기기)
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          $env:MAPLEHUD_HOME = Join-Path $env:RUNNER_TEMP 'maplehud-drag'
+          $out = Join-Path $env:RUNNER_TEMP 'selftest-drag.png'
+          $exe = 'native/src/MapleHud/bin/Release/net48/MapleSchedulerHUD.exe'
+          $p = Start-Process -FilePath $exe -ArgumentList '--selftest', $out, '6', 'drag' -Wait -PassThru
+          if (Test-Path "$out.txt") { Get-Content "$out.txt" } else { "결과 파일 없음: 앱이 비정상 종료됨 (exit $($p.ExitCode))" }
+          if ($p.ExitCode -ne 0) { exit 1 }
       - name: 배포 폴더 만들기
         shell: pwsh
         run: |
@@ -97,3 +107,6 @@ jobs:
             ${{ runner.temp }}/selftest-cached.png
             ${{ runner.temp }}/selftest-cached.png.txt
             ${{ runner.temp }}/selftest-cached.png.jpg
+            ${{ runner.temp }}/selftest-drag.png
+            ${{ runner.temp }}/selftest-drag.png.txt
+            ${{ runner.temp }}/selftest-drag.png.jpg

@@ -37,8 +37,8 @@ namespace MapleHud
         private readonly ComboBox _monitor = Combo();
         private readonly ComboBox _alignX = Combo("왼쪽", "가운데", "오른쪽");
         private readonly ComboBox _alignY = Combo("위", "가운데", "아래");
-        private readonly NumericUpDown _offsetX = Num(0, 2000, 2);
-        private readonly NumericUpDown _offsetY = Num(0, 2000, 2);
+        private readonly NumericUpDown _offsetX = Num(0, HudSettings.MaxOffset, 2);
+        private readonly NumericUpDown _offsetY = Num(0, HudSettings.MaxOffset, 2);
         private readonly NumericUpDown _columns = Num(1, 4, 1);
         private readonly NumericUpDown _cardWidth = Num(280, 720, 10);
         private readonly NumericUpDown _scale = Num(50, 250, 5);
@@ -105,7 +105,7 @@ namespace MapleHud
             Row(table, "가로 위치", _alignX);
             Row(table, "세로 위치", _alignY);
             Row(table, "가로 여백 (px)", _offsetX);
-            Row(table, "세로 여백 (px)", _offsetY);
+            Row(table, "세로 여백 (px)", _offsetY, "HUD를 마우스로 끌어서 옮겨도 됩니다. 놓은 자리에서 가까운 모서리를 기준으로 맞춰집니다.");
             Row(table, "열 개수", _columns);
             Row(table, "카드 너비 (px)", _cardWidth);
             Row(table, "크기 (%)", _scale);
@@ -124,6 +124,17 @@ namespace MapleHud
 
             var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
             scroll.Controls.Add(table);
+            // 휠로 창을 내리다가 마우스 아래 칸(모니터·위치·크기 등)의 값이 바뀌어 HUD가 엉뚱한 데로 가지 않게,
+            // 입력 중이 아닌 칸에서는 휠을 설정 창 스크롤로 넘긴다
+            foreach (var c in new Control[] { _minLevel, _maxChars, _refresh, _monitor, _alignX, _alignY, _offsetX, _offsetY, _columns, _cardWidth, _scale, _opacity })
+            {
+                c.MouseWheel += (s, e) =>
+                {
+                    if (((Control)s).ContainsFocus) return;
+                    if (e is HandledMouseEventArgs h) h.Handled = true;
+                    scroll.AutoScrollPosition = new Point(0, Math.Max(0, -scroll.AutoScrollPosition.Y - e.Delta / 2));
+                };
+            }
 
             var buttons = new FlowLayoutPanel
             {
@@ -328,6 +339,34 @@ namespace MapleHud
             }
             if (DialogResult == DialogResult.OK) Result = Read();
             else _preview(_original);   // 취소하면 미리보기를 되돌린다
+        }
+
+        /// <summary>
+        /// HUD를 끌어서 옮겼을 때 위치 칸을 맞춘다. 옮긴 자리는 이미 저장됐으므로 취소해도 되돌리지 않는다.
+        /// </summary>
+        internal void SetPosition(HudSettings s)
+        {
+            bool dirty = Changed();
+            _original.Monitor = s.Monitor;
+            _original.AlignX = s.AlignX;
+            _original.AlignY = s.AlignY;
+            _original.OffsetX = s.OffsetX;
+            _original.OffsetY = s.OffsetY;
+            _loading = true;
+            try
+            {
+                int monitor = Array.FindIndex(_screens, sc => sc.DeviceName == s.Monitor);
+                if (monitor >= 0) _monitor.SelectedIndex = monitor;
+                _alignX.SelectedIndex = Math.Max(0, Array.IndexOf(AlignXValues, s.AlignX));
+                _alignY.SelectedIndex = Math.Max(0, Array.IndexOf(AlignYValues, s.AlignY));
+                _offsetX.Value = Math.Min(_offsetX.Maximum, s.OffsetX);
+                _offsetY.Value = Math.Min(_offsetY.Maximum, s.OffsetY);
+            }
+            finally
+            {
+                _loading = false;
+            }
+            if (!dirty) _baseline = Read().ToJson();
         }
 
         /// <summary>자체 점검용: API 입력란을 채운다</summary>
