@@ -5,11 +5,15 @@ using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using SkiaSharp;
 
 namespace MapleHud
 {
-    /// <summary>캐릭터 이미지를 받아서 메모리와 디스크에 보관한다 (다시 켜도 바로 보이도록)</summary>
+    /// <summary>
+    /// 캐릭터 이미지를 받아서 메모리와 디스크에 보관한다 (다시 켜도 바로 보이도록).
+    /// Get은 HUD를 그리는 도중에 불리므로 Loaded는 항상 그리기가 끝난 뒤(UI 스레드의 다음 차례)에 알린다.
+    /// </summary>
     internal sealed class AvatarCache : IDisposable
     {
         private readonly HttpClient _http;
@@ -38,23 +42,29 @@ namespace MapleHud
         private async void Load(string url)
         {
             var file = Path.Combine(_dir, Hash(url) + ".png");
-            byte[] bytes = null;
+            SKImage img = null;
             try
             {
-                if (File.Exists(file)) bytes = File.ReadAllBytes(file);
-                else
+                // 디스크에 있어도 바로 돌려주지 않는다: 그리는 중에 Loaded가 불리면 그리기가 겹쳐 앱이 죽는다
+                var bytes = await Task.Run(() => File.Exists(file) ? File.ReadAllBytes(file) : null).ConfigureAwait(true);
+                if (bytes == null)
                 {
                     bytes = await _http.GetByteArrayAsync(url).ConfigureAwait(true);
                     Directory.CreateDirectory(_dir);
                     File.WriteAllBytes(file, bytes);
                 }
+                img = SKImage.FromEncodedData(bytes);
             }
             catch (Exception)
             {
                 // 이미지를 못 받으면 이름 첫 글자로 대신한다 (다음 실행 때 다시 시도)
-                bytes = null;
+                img = null;
             }
-            var img = bytes != null ? SKImage.FromEncodedData(bytes) : null;
+            if (_disposed)
+            {
+                img?.Dispose();
+                return;
+            }
             _images[url] = img;
             if (img != null) Loaded?.Invoke();
         }
@@ -68,8 +78,11 @@ namespace MapleHud
             }
         }
 
+        private bool _disposed;
+
         public void Dispose()
         {
+            _disposed = true;
             foreach (var img in _images.Values) img?.Dispose();
             _images.Clear();
         }

@@ -27,6 +27,8 @@ namespace MapleHud
         private HudLayout _layout;
         private float _scale = 1;
         private bool _topMost;
+        private bool _presenting;
+        private bool _presentAgain;
 
         /// <summary>클릭한 영역 (action, key, id)</summary>
         public event Action<HitRegion> RegionClicked;
@@ -99,6 +101,31 @@ namespace MapleHud
         public void Present(string frameKey = null, bool force = false)
         {
             if (!IsHandleCreated) return;
+            // 그리는 도중에 다시 그리라는 요청이 오면 겹쳐 그리지 않고, 끝난 뒤에 한 번 더 그린다
+            // (겹쳐 그리면 쓰던 비트맵·캔버스가 중간에 바뀌어 앱이 죽는다)
+            if (_presenting)
+            {
+                _presentAgain = true;
+                return;
+            }
+            _presenting = true;
+            try
+            {
+                PresentCore(frameKey, force);
+            }
+            finally
+            {
+                _presenting = false;
+            }
+            if (_presentAgain)
+            {
+                _presentAgain = false;
+                if (!IsDisposed) BeginInvoke((Action)(() => Present(null, true)));
+            }
+        }
+
+        private void PresentCore(string frameKey, bool force)
+        {
             var input = _input();
             var s = input.Settings;
             var screen = TargetScreen(s);

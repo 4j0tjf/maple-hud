@@ -347,6 +347,13 @@ namespace MapleHud
 
         public void BringToFront() => _window.BringToFront2();
 
+        /// <summary>한 번 더 실행했을 때: 새로 뜨지 않고 이미 떠 있는 HUD를 앞으로 가져와 알려준다</summary>
+        public void ShowAlreadyRunning()
+        {
+            _window.BringToFront2();
+            _tray.ShowBalloonTip(4000, "Maple Scheduler HUD", "이미 실행 중입니다. 작업 표시줄 오른쪽 단풍잎 아이콘에서 설정·종료할 수 있습니다.", ToolTipIcon.Info);
+        }
+
         /* ---------- 자체 점검 ---------- */
 
         internal SettingsForm OpenSettingsForTest()
