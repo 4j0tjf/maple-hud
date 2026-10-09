@@ -30,19 +30,36 @@ namespace MapleHud.Core
         }
 
         /// <summary>
-        /// 끌어서 놓은 자리(x, y, w, h)를 설정으로 바꾼다. 패널 가운데가 화면의 어느 쪽 반에 있는지로
-        /// 기준 모서리를 정하고(왼쪽/오른쪽, 위/아래), 화면 밖으로 나간 만큼은 안으로 들인다.
+        /// 끌어서 놓은 자리(x, y, w, h)를 설정으로 바꾼다. dx, dy는 끈 거리.
+        /// - 거의 안 움직인 방향은 원래 기준 모서리를 그대로 둔다 (옆으로만 옮겼는데 위아래 기준이 바뀌지 않게)
+        /// - 움직인 방향은 패널 가운데가 화면의 어느 쪽 반에 있는지로 기준을 정한다
+        /// - 화면 높이의 절반보다 큰 패널은 위 기준으로 둔다 (놓은 자리 아래로 남은 만큼만 쓰고 넘치면 스크롤)
+        /// 화면 밖으로 나간 만큼은 안으로 들인다.
         /// </summary>
-        public static void FromBox(HudSettings s, int x, int y, int w, int h, int waX, int waY, int waW, int waH, float dpiScale)
+        public static void FromBox(HudSettings s, int x, int y, int w, int h, int dx, int dy,
+            int waX, int waY, int waW, int waH, float dpiScale)
         {
+            const int Still = 10;
+            int minVisible = (int)Math.Round(160 * dpiScale);
+
             x = Math.Max(waX, Math.Min(x, waX + waW - w));
-            y = Math.Max(waY, Math.Min(y, waY + waH - h));
-            bool left = x + w / 2.0 < waX + waW / 2.0;
-            bool top = y + h / 2.0 < waY + waH / 2.0;
-            s.AlignX = left ? "left" : "right";
-            s.AlignY = top ? "top" : "bottom";
-            s.OffsetX = Math.Max(0, (int)Math.Round((left ? x - waX : waX + waW - (x + w)) / dpiScale));
-            s.OffsetY = Math.Max(0, (int)Math.Round((top ? y - waY : waY + waH - (y + h)) / dpiScale));
+            if (Math.Abs(dx) >= Still) s.AlignX = x + w / 2.0 < waX + waW / 2.0 ? "left" : "right";
+            if (s.AlignX == "left") s.OffsetX = Dip(x - waX, dpiScale);
+            else if (s.AlignX == "right") s.OffsetX = Dip(waX + waW - (x + w), dpiScale);
+
+            if (Math.Abs(dy) >= Still) s.AlignY = h > waH / 2 || y + h / 2.0 < waY + waH / 2.0 ? "top" : "bottom";
+            if (s.AlignY == "top")
+            {
+                int top = Math.Max(waY, Math.Min(y, waY + waH - minVisible));
+                s.OffsetY = Dip(top - waY, dpiScale);
+            }
+            else if (s.AlignY == "bottom")
+            {
+                int bottom = Math.Min(waY + waH, Math.Max(y + h, waY + minVisible));
+                s.OffsetY = Dip(waY + waH - bottom, dpiScale);
+            }
         }
+
+        private static int Dip(int px, float dpiScale) => Math.Max(0, (int)Math.Round(px / dpiScale));
     }
 }

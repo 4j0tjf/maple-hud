@@ -188,13 +188,14 @@ namespace MapleHud
         }
 
         // 끌어서 놓은 자리를 설정으로 저장한다 (놓은 모니터와 가까운 모서리 기준)
-        private void OnDragged(Rectangle rect)
+        private void OnDragged(Rectangle rect, Size moved)
         {
             var screen = Screen.FromRectangle(rect);
             var wa = screen.WorkingArea;
             var next = _settings.Clone();
             next.Monitor = screen.DeviceName;
-            Placement.FromBox(next, rect.X, rect.Y, rect.Width, rect.Height, wa.X, wa.Y, wa.Width, wa.Height, Native.DpiForScreen(screen) / 96f);
+            Placement.FromBox(next, rect.X, rect.Y, rect.Width, rect.Height, moved.Width, moved.Height,
+                wa.X, wa.Y, wa.Width, wa.Height, Native.DpiForScreen(screen) / 96f);
             ApplySettings(next, persist: true);
             // 설정 창이 열려 있으면 그 칸도 맞춘다 (저장할 때 옛 위치로 되돌리지 않게)
             _settingsForm?.SetPosition(next);

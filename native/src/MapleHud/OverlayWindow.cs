@@ -46,8 +46,8 @@ namespace MapleHud
         /// <summary>마우스가 올라간 영역이나 카드가 바뀜</summary>
         public event Action HoverChanged;
         public event Action<float> Scrolled;
-        /// <summary>끌어서 옮기고 놓음 (놓은 자리의 화면 좌표)</summary>
-        public event Action<Rectangle> Dragged;
+        /// <summary>끌어서 옮기고 놓음 (놓은 자리의 화면 좌표, 끈 거리)</summary>
+        public event Action<Rectangle, Size> Dragged;
 
         public HitRegion Hover { get; private set; }
         public string HoverCard { get; private set; }
@@ -342,7 +342,7 @@ namespace MapleHud
             if (!_dragging) return;
             _dragging = false;
             Cursor = Cursors.Default;
-            Dragged?.Invoke(new Rectangle(_pos, _size));
+            Dragged?.Invoke(new Rectangle(_pos, _size), new Size(_pos.X - _pressPos.X, _pos.Y - _pressPos.Y));
         }
 
         internal Rectangle PanelRect => new Rectangle(_pos, _size);
