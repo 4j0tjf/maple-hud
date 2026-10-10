@@ -22,7 +22,8 @@ namespace MapleHud.Core
         public string Difficulty = "";
         public string Cycle = "";
         public double Order;
-        public bool Visible;
+        public bool Visible;      // 실제 표시 여부 (분류가 꺼져 있으면 false)
+        public bool ItemOn;       // 분류와 상관없이 이 항목을 켤지 (유지하기 때 그대로 옮겨 적는다)
         public bool Stale;
     }
 
@@ -52,6 +53,8 @@ namespace MapleHud.Core
         public int RegisteredCount;
         public bool ShowingAll;
         public bool Customized;
+        public bool Kept;           // 사용자 설정 유지 중 (인게임 등록 여부를 따르지 않음)
+        public int HiddenNew;       // 유지 중에 인게임에 새로 등록돼서 숨겨진 항목 수
         public List<SchedGroup> Groups = new List<SchedGroup>();
         public List<SchedItem> Daily = new List<SchedItem>();
         public List<SchedItem> Weekly = new List<SchedItem>();
@@ -61,17 +64,24 @@ namespace MapleHud.Core
         public Tally CountDaily, CountWeekly, CountBoss, CountAll;
     }
 
-    /// <summary>캐릭터별 표시 설정. Groups[분류]=false면 분류 전체 숨김, Items[key]가 있으면 기본 규칙보다 우선</summary>
+    /// <summary>
+    /// 캐릭터별 표시 설정. Groups[분류]=false면 분류 전체 숨김, Items[key]가 있으면 기본 규칙보다 우선.
+    /// Kept(유지하기)면 인게임 등록 여부를 보지 않고 Items에 켠 항목만 보여준다 (새 항목은 꺼진 채로).
+    /// </summary>
     public sealed class Selection
     {
         public Dictionary<string, bool> Groups { get; set; } = new Dictionary<string, bool>();
         public Dictionary<string, bool> Items { get; set; } = new Dictionary<string, bool>();
-        public bool IsEmpty => (Groups == null || Groups.Count == 0) && (Items == null || Items.Count == 0);
+        public bool Kept { get; set; }
+
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool IsEmpty => !Kept && (Groups == null || Groups.Count == 0) && (Items == null || Items.Count == 0);
 
         public Selection Clone() => new Selection
         {
             Groups = new Dictionary<string, bool>(Groups ?? new Dictionary<string, bool>()),
-            Items = new Dictionary<string, bool>(Items ?? new Dictionary<string, bool>())
+            Items = new Dictionary<string, bool>(Items ?? new Dictionary<string, bool>()),
+            Kept = Kept
         };
     }
 
@@ -190,14 +200,21 @@ namespace MapleHud.Core
             }
 
             int registered = all.Count(i => i.Registered);
+            bool kept = selection != null && selection.Kept;
             // 기본 규칙: 등록된 항목만. 등록된 항목이 하나도 없으면 전체를 보여준다
-            bool showAllByDefault = showAll || registered == 0;
+            // 유지 중이면 기본 규칙 대신 "고르지 않은 항목은 숨김"
+            bool showAllByDefault = !kept && (showAll || registered == 0);
             // 사용자 선택: 분류를 끄면 그 분류 전체를 숨기고, 항목별 선택은 기본 규칙보다 우선한다
+            int hiddenNew = 0;
             foreach (var it in all)
             {
-                if (groupsSel.TryGetValue(it.Group, out var groupOn) && !groupOn) it.Visible = false;
-                else if (itemsSel.TryGetValue(it.Key, out var on)) it.Visible = on;
-                else it.Visible = showAllByDefault || it.Registered;
+                if (itemsSel.TryGetValue(it.Key, out var on)) it.ItemOn = on;
+                else
+                {
+                    it.ItemOn = !kept && (showAllByDefault || it.Registered);
+                    if (kept && it.Registered) hiddenNew++;
+                }
+                it.Visible = it.ItemOn && !(groupsSel.TryGetValue(it.Group, out var groupOn) && !groupOn);
             }
 
             int bossClear = (int)J.Num(body, "weekly_boss_clear_count");
@@ -212,6 +229,8 @@ namespace MapleHud.Core
                 RegisteredCount = registered,
                 ShowingAll = showAllByDefault,
                 Customized = selection != null && !selection.IsEmpty,
+                Kept = kept,
+                HiddenNew = hiddenNew,
                 Daily = daily.Where(i => i.Visible).ToList(),
                 Weekly = weekly.Where(i => i.Visible).ToList(),
                 Boss = boss.Where(i => i.Visible).ToList(),
@@ -242,6 +261,7 @@ namespace MapleHud.Core
         /// 표시 설정 편집. 원본은 그대로 두고 새 선택을 돌려준다.
         /// model은 지금 선택으로 Normalize한 결과 (항목의 현재 표시 여부를 알기 위해)
         ///   item: 항목 하나 켜기/끄기, group: 분류 전체 켜기/끄기, all/none: 분류의 항목 모두 켜기/끄기
+        ///   keep: 지금 보이는 대로 모든 항목을 적어 두고 유지 (이후 인게임 등록이 바뀌어도 그대로)
         /// </summary>
         public static Selection EditSelection(Selection selection, SchedModel model, string action, string id)
         {
@@ -256,6 +276,10 @@ namespace MapleHud.Core
                 case "group":
                     if (next.Groups.TryGetValue(id, out var on) && !on) next.Groups.Remove(id);
                     else next.Groups[id] = false;
+                    break;
+                case "keep":
+                    foreach (var it in groups.SelectMany(x => x.Items)) next.Items[it.Key] = it.ItemOn;
+                    next.Kept = true;
                     break;
                 case "all":
                 case "none":

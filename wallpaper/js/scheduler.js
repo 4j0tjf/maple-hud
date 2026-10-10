@@ -111,7 +111,7 @@
   }
 
   function isCustomized(sel) {
-    return !!sel && (Object.keys(sel.items || {}).length > 0 || Object.keys(sel.groups || {}).length > 0);
+    return !!sel && (!!sel.kept || Object.keys(sel.items || {}).length > 0 || Object.keys(sel.groups || {}).length > 0);
   }
 
   /**
@@ -119,7 +119,8 @@
    * @param fetchedAt  응답을 받은 시각 (epoch ms)
    * @param now        현재 시각 (epoch ms)
    * @param opts       { showAll: 등록 안 된 항목도 표시, delay: 초기화 후 반영 지연(ms),
-   *                     selection: { groups: { 분류: false(숨김) }, items: { 항목 key: true/false } } }
+   *                     selection: { groups: { 분류: false(숨김) }, items: { 항목 key: true/false },
+   *                                  kept: true면 인게임 등록 여부를 보지 않고 items에서 켠 항목만 (유지하기) } }
    */
   function normalize(body, fetchedAt, now, opts) {
     body = body || {};
@@ -138,13 +139,19 @@
     applyResets(all, fetchedAt, now, delay);
 
     var registered = all.filter(function (it) { return it.registered; }).length;
+    var kept = !!sel.kept;
     // 기본 규칙: 등록된 항목만. 등록된 항목이 하나도 없으면 전체를 보여준다
-    var showAll = !!opts.showAll || registered === 0;
+    // 유지 중이면 기본 규칙 대신 "고르지 않은 항목은 숨김"
+    var showAll = !kept && (!!opts.showAll || registered === 0);
     // 사용자 선택: 분류를 끄면 그 분류 전체를 숨기고, 항목별 선택은 기본 규칙보다 우선한다
+    var hiddenNew = 0;
     all.forEach(function (it) {
-      if (selGroups[it.group] === false) it.visible = false;
-      else if (typeof selItems[it.key] === 'boolean') it.visible = selItems[it.key];
-      else it.visible = showAll || it.registered;
+      if (typeof selItems[it.key] === 'boolean') it.itemOn = selItems[it.key];
+      else {
+        it.itemOn = !kept && (showAll || it.registered);
+        if (kept && it.registered) hiddenNew++;
+      }
+      it.visible = it.itemOn && selGroups[it.group] !== false;
     });
     function visible(list) {
       return list.filter(function (it) { return it.visible; });
@@ -162,6 +169,8 @@
       registeredCount: registered,
       showingAll: showAll,
       customized: isCustomized(sel),
+      kept: kept,
+      hiddenNew: hiddenNew,
       // 표시 설정 화면용: 분류별 전체 항목 (it.visible로 표시 여부)
       groups: GROUPS.map(function (g) {
         return {
@@ -200,6 +209,7 @@
       groups: Object.assign({}, sel && sel.groups),
       items: Object.assign({}, sel && sel.items)
     };
+    if (sel && sel.kept) next.kept = true;
     var groups = (model && model.groups) || [];
     function groupOf(gid) {
       return groups.filter(function (g) { return g.id === gid; })[0];
@@ -214,6 +224,12 @@
     } else if (action === 'group') {
       if (next.groups[id] === false) delete next.groups[id];
       else next.groups[id] = false;
+    } else if (action === 'keep') {
+      // 지금 보이는 대로 모든 항목을 적어 두고 유지 (이후 인게임 등록이 바뀌어도 그대로)
+      groups.forEach(function (g) {
+        g.items.forEach(function (it) { next.items[it.key] = it.itemOn; });
+      });
+      next.kept = true;
     } else if (action === 'all' || action === 'none') {
       var g = groupOf(id);
       if (g) g.items.forEach(function (it) { next.items[it.key] = action === 'all'; });

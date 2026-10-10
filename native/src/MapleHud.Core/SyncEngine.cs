@@ -107,6 +107,16 @@ namespace MapleHud.Core
             return true;
         }
 
+        /// <summary>
+        /// 사용자가 직접 API에서 다시 불러오라고 할 때 (편집 화면의 "API 불러오기").
+        /// 새로고침 버튼과 달리 연달아 누른 것을 막지 않는다. 받는 중이면 끝난 뒤 한 번 더 받는다.
+        /// </summary>
+        public void RefreshNow()
+        {
+            _lastManual = Now;
+            _ = SyncAsync(true);
+        }
+
         private void ScheduleNext()
         {
             var now = Now;

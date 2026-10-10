@@ -398,8 +398,13 @@
   }
 
   function editSelection(key, action, id) {
-    if (action === 'reset') {
+    if (action === 'reset' || action === 'reload') {
       store.remove('sel:' + key);
+      // API 불러오기: 인게임 스케줄러 기준으로 되돌리고 스케줄러도 새로 받는다
+      if (action === 'reload') {
+        lastManual = Date.now();
+        sync(true);
+      }
     } else {
       var card = findCard(key);
       if (!card || !card.model) return;

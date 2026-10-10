@@ -141,10 +141,31 @@ namespace MapleHud.Core.Tests
                     Save(bmp, "editor");
                     Assert.Contains(layout.Regions, h => h.Action == "group" && h.Id == "bossMonthly");
                     Assert.Contains(layout.Regions, h => h.Action == "item" && h.Id == "daily:몬스터파크");
-                    Assert.Contains(layout.Regions, h => h.Action == "reset");
+                    // 바꾼 것이 있으면 유지하기, 언제나 API 불러오기
+                    Assert.Contains(layout.Regions, h => h.Action == "keep" && h.Key == first);
+                    Assert.Contains(layout.Regions, h => h.Action == "reload" && h.Key == first);
                     // 영역 가운데를 누르면 같은 영역이 잡힌다
                     var pick = layout.Regions.First(h => h.Action == "item" && h.Id == "daily:몬스터파크");
                     Assert.Same(pick, layout.HitTest(pick.Rect.MidX, pick.Rect.MidY));
+                }
+
+                // 유지하면 유지하기 버튼 대신 "내 설정 유지 중", 카드에는 "내 설정" 표시
+                ctl.EditSelection(first, "keep", null);
+                input = new RenderInput { View = ctl.Build(), Settings = s, Now = T.Now, MaxHeight = 1400, HoverCard = first };
+                using (var bmp = Render(r, input, out var layout))
+                {
+                    Save(bmp, "editor-kept");
+                    Assert.DoesNotContain(layout.Regions, h => h.Action == "keep");
+                    Assert.Contains(layout.Regions, h => h.Action == "reload" && h.Key == first);
+                }
+
+                // 좁은 카드에서도 버튼이 카드 안에 들어간다
+                var narrow = new HudSettings { CardWidth = 280 };
+                input = new RenderInput { View = ctl.Build(), Settings = narrow, Now = T.Now, MaxHeight = 1400 };
+                using (Render(r, input, out var small))
+                {
+                    var buttons = small.Regions.Where(h => h.Action == "reload" || h.Action == "edit").ToList();
+                    Assert.All(buttons, h => Assert.True(h.Rect.Left >= 14 && h.Rect.Right <= small.Width - 14));
                 }
             }
         }

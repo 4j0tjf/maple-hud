@@ -676,7 +676,15 @@ namespace MapleHud.Core.Render
                 Icon(Icons.WarnMark, cx, nameY + 4, 13, 16, _th.Danger, strokeWidth: 1.6f);
             }
             var meta = string.Join(" · ", new[] { card.Cls, card.World }.Where(v => !string.IsNullOrEmpty(v)));
-            Text(Ellipsize(meta, avail, 400, 11.5f), wx, nameY + 22, 16, 400, 11.5f, _th.Text2);
+            float tagW = m != null && m.Kept ? Width("내 설정", 700, 9.5f) + 10 : 0;
+            float mw = Text(Ellipsize(meta, Math.Max(20, avail - (tagW > 0 ? tagW + 6 : 0)), 400, 11.5f), wx, nameY + 22, 16, 400, 11.5f, _th.Text2);
+            if (tagW > 0)
+            {
+                // 표시 항목을 유지 중인 캐릭터
+                var tr = new SKRect(wx + mw + (mw > 0 ? 6 : 0), nameY + 24, wx + mw + (mw > 0 ? 6 : 0) + tagW, nameY + 36);
+                RRect(tr, 6, Theme.A(_th.Accent, 0.12), Theme.A(_th.Accent, 0.55));
+                Text("내 설정", tr.Left + 5, tr.Top, 12, 700, 9.5f, _th.Accent, shadow: false);
+            }
             if (m != null && _c != null)
             {
                 var track = new SKRect(wx, nameY + 42, wx + avail, nameY + 46);
@@ -734,6 +742,8 @@ namespace MapleHud.Core.Render
             {
                 bool hint = m.ShowingAll && !_in.Settings.ShowAll && m.RegisteredCount == 0 && !m.Customized;
                 if (hint) yy = Hint("인게임 스케줄러에 등록된 항목이 없어 전체 항목을 표시합니다", ix, yy, iw);
+                if (m.Kept && m.HiddenNew > 0)
+                    yy = Hint("인게임 스케줄러에 새로 등록된 항목 " + m.HiddenNew + "개는 내 설정을 유지하느라 숨겨 두었습니다. 연필 버튼에서 켤 수 있습니다", ix, yy, iw);
                 float start = yy;
                 yy = Section("일일", m.Daily, m.CountDaily, ix, yy, iw, null, false);
                 yy = Section("주간", m.Weekly, m.CountWeekly, ix, yy, iw, null, false);
@@ -978,17 +988,29 @@ namespace MapleHud.Core.Render
         {
             var m = card.Model;
             float yy = y + 10;
-            // 위: 도움말, 기본값으로, 완료
+            // 위: 지금 방식, API 불러오기, 유지하기(바꾼 것이 있을 때), 완료
             float bx = x + w;
-            bx -= LinkButton("완료", bx, yy, "edit", card.Key, null, primary: true) + 8;
-            if (m.Customized) bx -= LinkButton("기본값으로", bx, yy, "reset", card.Key, null) + 8;
-            float hx = x + Text("표시할 항목을 누르세요", x, yy, 22, 400, 11, _th.Text3) + 6;
-            if (hx + 9 + 4 + Width("인게임 스케줄러 등록", 400, 11) < bx)
-            {
-                Icon(Icons.Star, hx, yy + 6.5f, 9, 16, _th.Accent, fill: true);
-                Text("인게임 스케줄러 등록", hx + 12, yy, 22, 400, 11, _th.Text3);
-            }
+            bx -= LinkButton("완료", bx, yy, "edit", card.Key, null, primary: true) + 6;
+            if (m.Customized && !m.Kept) bx -= LinkButton("유지하기", bx, yy, "keep", card.Key, null, accent: true) + 6;
+            bx -= LinkButton("API 불러오기", bx, yy, "reload", card.Key, null) + 6;
+            string mode = m.Kept ? "내 설정 유지 중" : m.Customized ? "내가 바꿈" : "인게임 등록 기준";
+            if (bx - x > 40) Text(Ellipsize(mode, bx - x - 4, 700, 11), x, yy, 22, 700, 11, m.Kept ? _th.Accent : _th.Text2);
             yy += 22 + 4;
+
+            // 지금 방식 설명
+            string about = m.Kept
+                ? "인게임 스케줄러 등록이 바뀌어도 지금 고른 대로 보여줍니다. API 불러오기를 누르면 인게임 등록 기준으로 돌아갑니다."
+                : m.Customized
+                    ? "바꾼 항목은 저장됩니다. 나머지는 인게임 등록을 따릅니다. 유지하기를 누르면 전부 지금 그대로 고정합니다."
+                    : "인게임 스케줄러에 등록된 항목을 보여줍니다. 표시할 항목을 누르세요.";
+            foreach (var line in Wrap(about, w, 400, 11))
+            {
+                Text(line, x, yy, 16, 400, 11, _th.Text3);
+                yy += 16;
+            }
+            Icon(Icons.Star, x, yy + 3.5f, 9, 16, _th.Accent, fill: true);
+            Text("인게임 스케줄러 등록", x + 12, yy, 16, 400, 11, _th.Text3);
+            yy += 16 + 4;
 
             if (m.Groups.Count == 0) return Message("스케줄러 항목이 없습니다", x, yy, w, _th.Text3);
             foreach (var g in m.Groups)
@@ -1030,14 +1052,16 @@ namespace MapleHud.Core.Render
         }
 
         /// <summary>오른쪽 끝(right)에 붙는 작은 버튼. 너비를 돌려준다</summary>
-        private float LinkButton(string label, float right, float y, string action, string key, string id, bool primary = false)
+        private float LinkButton(string label, float right, float y, string action, string key, string id, bool primary = false, bool accent = false)
         {
             float bw = Width(label, 600, 11) + 18;
             var r = new SKRect(right - bw, y, right, y + 22);
             bool hover = IsHover(action, key, id);
             if (primary) RRect(r, 7, _th.Accent, _th.Accent);
+            else if (accent) RRect(r, 7, Theme.A(_th.Accent, hover ? 0.24 : 0.12), Theme.A(_th.Accent, 0.6));
             else RRect(r, 7, Theme.White(hover ? 0.10 : 0.05), _th.Line);
-            Text(label, r.Left + 9, y, 22, 600, 11, primary ? _th.Dark : hover ? _th.Text : _th.Text2, shadow: !primary);
+            var color = primary ? _th.Dark : accent ? _th.Accent : hover ? _th.Text : _th.Text2;
+            Text(label, r.Left + 9, y, 22, 600, 11, color, shadow: !primary);
             Hit(r, action, key, id);
             return bw;
         }

@@ -35,26 +35,43 @@ namespace MapleHud.Core
     }
 
     /// <summary>
-    /// 화면 상태와 사용자 조작(접기, 표시 항목 편집). 캐릭터별 상태는 저장소에 둔다.
+    /// 화면 상태와 사용자 조작(접기, 표시 항목 편집). 캐릭터별 상태는 사용자 설정 저장소(prefs.json)에 둔다.
+    /// API 캐시와 따로 두어서 캐시가 깨지거나 지워져도 사용자가 고른 것은 남는다.
     ///   sel:{key}      표시 항목 선택 (Selection)
     ///   collapse:{key} 접기 상태 { v, day } — 접은 상태는 유지, 펼친 상태는 그날만 유효
     /// </summary>
     public sealed class HudController
     {
         private readonly SyncEngine _engine;
-        private readonly JsonStore _store;
+        private readonly JsonStore _store;   // 사용자 설정 (prefs)
         private readonly System.Func<long> _now;
 
         public HudSettings Settings { get; set; }
         public string Editing { get; private set; }
 
-        public HudController(SyncEngine engine, JsonStore store, HudSettings settings, System.Func<long> now = null)
+        public HudController(SyncEngine engine, JsonStore prefs, HudSettings settings, System.Func<long> now = null)
         {
             _engine = engine;
-            _store = store;
+            _store = prefs;
             Settings = settings;
             _now = now ?? KstTime.NowMs;
         }
+
+        /// <summary>
+        /// 예전 버전은 사용자 설정을 API 캐시(store.json)에 같이 두었다. prefs.json이 처음 생길 때 옮겨 온다.
+        /// </summary>
+        public static int MigratePrefs(JsonStore cache, JsonStore prefs)
+        {
+            var keys = cache.Keys.Where(IsPrefKey).ToList();
+            foreach (var k in keys)
+            {
+                if (prefs.GetRaw(k) == null) prefs.SetRaw(k, cache.GetRaw(k));
+                cache.Remove(k);
+            }
+            return keys.Count;
+        }
+
+        private static bool IsPrefKey(string key) => key.StartsWith("sel:") || key.StartsWith("collapse:");
 
         public Selection SelectionOf(string key) => _store.Get<Selection>("sel:" + key);
 
@@ -133,7 +150,7 @@ namespace MapleHud.Core
 
         public void ToggleEdit(string key) => Editing = Editing == key ? null : key;
 
-        /// <summary>action: item, group, all, none, reset</summary>
+        /// <summary>action: item, group, all, none, keep(유지하기), reset(인게임 등록 기준으로 되돌리기)</summary>
         public void EditSelection(string key, string action, string id)
         {
             if (action == "reset")

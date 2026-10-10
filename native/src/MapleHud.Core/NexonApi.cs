@@ -27,7 +27,8 @@ namespace MapleHud.Core
             ["OPENAPI00010"] = "게임 점검 중입니다",
             ["OPENAPI00011"] = "API 점검 중입니다",
             ["NETWORK"] = "네트워크 오류 (인터넷 연결을 확인하세요)",
-            ["TIMEOUT"] = "응답 시간 초과"
+            ["TIMEOUT"] = "응답 시간 초과",
+            ["BADRESPONSE"] = "넥슨 API 응답을 읽을 수 없습니다 (점검 중일 수 있습니다)"
         };
 
         public ApiException(string code, string detail = null, int status = 0)
@@ -40,7 +41,7 @@ namespace MapleHud.Core
         // 이 오류들은 모든 캐릭터에 똑같이 실패하므로 동기화를 멈추고 전체 알림으로 띄운다
         public bool IsFatal =>
             Code == "OPENAPI00005" || Code == "OPENAPI00006" || Code == "OPENAPI00007" ||
-            Code == "OPENAPI00010" || Code == "OPENAPI00011" || Code == "NETWORK";
+            Code == "OPENAPI00010" || Code == "OPENAPI00011" || Code == "NETWORK" || Code == "BADRESPONSE";
     }
 
     /// <summary>
@@ -137,7 +138,12 @@ namespace MapleHud.Core
                     using (res)
                     {
                         var text = await res.Content.ReadAsStringAsync().ConfigureAwait(true);
-                        if (res.IsSuccessStatusCode) return text;
+                        if (res.IsSuccessStatusCode)
+                        {
+                            // 점검 안내 페이지 같은 것이 오면 캐시하지 않고 오류로 처리한다
+                            if (!JsonStore.IsJson(text)) throw new ApiException("BADRESPONSE", null, (int)res.StatusCode);
+                            return text;
+                        }
                         string code = "HTTP" + (int)res.StatusCode, message = null;
                         try
                         {

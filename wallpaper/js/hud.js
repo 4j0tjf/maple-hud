@@ -201,12 +201,20 @@
       '</div>';
     }).join('');
 
+    var mode = m.kept ? '내 설정 유지 중' : m.customized ? '내가 바꿈' : '인게임 등록 기준';
+    var about = m.kept
+      ? '인게임 스케줄러 등록이 바뀌어도 지금 고른 대로 보여줍니다. API 불러오기를 누르면 인게임 등록 기준으로 돌아갑니다.'
+      : m.customized
+        ? '바꾼 항목은 저장됩니다. 나머지는 인게임 등록을 따릅니다. 유지하기를 누르면 전부 지금 그대로 고정합니다.'
+        : '인게임 스케줄러에 등록된 항목을 보여줍니다. 표시할 항목을 누르세요.';
     return '<div class="editor">' +
       '<div class="ed-top">' +
-        '<span class="ed-help">표시할 항목을 누르세요 <span class="reg">★</span> 인게임 스케줄러 등록</span>' +
-        (m.customized ? '<button type="button" class="ed-link" data-action="reset"' + key + '>기본값으로</button>' : '') +
+        '<span class="ed-mode' + (m.kept ? ' kept' : '') + '">' + mode + '</span>' +
+        '<button type="button" class="ed-link" data-action="reload"' + key + ' title="내 설정을 지우고 인게임 스케줄러 기준으로, 스케줄러도 새로 받습니다">API 불러오기</button>' +
+        (m.customized && !m.kept ? '<button type="button" class="ed-link accent" data-action="keep"' + key + '>유지하기</button>' : '') +
         '<button type="button" class="ed-done" data-action="edit"' + key + '>완료</button>' +
       '</div>' +
+      '<div class="ed-help">' + about + '<br><span class="reg">★</span> 인게임 스케줄러 등록</div>' +
       (groups || '<div class="card-msg">스케줄러 항목이 없습니다</div>') +
     '</div>';
   }
@@ -232,7 +240,7 @@
         avatar(card) +
         '<div class="who">' +
           '<div class="name-row"><span class="name">' + esc(card.name) + '</span>' + lv + exp + warn + '</div>' +
-          '<div class="meta">' + meta + '</div>' +
+          '<div class="meta">' + meta + (m && m.kept ? ' <span class="tag-kept" title="표시 항목을 내 설정대로 유지 중">내 설정</span>' : '') + '</div>' +
           (m ? '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '') +
         '</div>' +
         (complete ? '<span class="badge-clear">ALL CLEAR</span>'
@@ -253,6 +261,10 @@
       if (!body) body = '<div class="card-msg">표시할 항목이 없습니다. ✎ 버튼으로 고르세요</div>';
       if (m.showingAll && !cfg.showAll && m.registeredCount === 0 && !m.customized) {
         body = '<div class="card-hint">인게임 스케줄러에 등록된 항목이 없어 전체 항목을 표시합니다</div>' + body;
+      }
+      if (m.kept && m.hiddenNew > 0) {
+        body = '<div class="card-hint">인게임 스케줄러에 새로 등록된 항목 ' + m.hiddenNew +
+          '개는 내 설정을 유지하느라 숨겨 두었습니다. ✎ 버튼에서 켤 수 있습니다</div>' + body;
       }
     } else if (card.error) {
       body = '<div class="card-msg error">' + ICON.warn + esc(card.error) + '</div>';

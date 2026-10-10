@@ -14,8 +14,9 @@ namespace MapleHud.Core
     }
 
     /// <summary>
-    /// 작은 키-값 저장소 (API 캐시, 캐릭터별 표시 설정, 접기 상태). 값은 JSON 텍스트로 보관하고
-    /// 바뀐 내용은 Flush()에서 파일 하나에 한꺼번에 쓴다.
+    /// 작은 키-값 저장소. 값은 JSON 텍스트로 보관하고 바뀐 내용은 Flush()에서 파일 하나에 한꺼번에 쓴다.
+    /// 앱은 두 개를 쓴다: API 캐시(store.json)와 사용자 설정(prefs.json, 캐릭터별 표시 항목·접기 상태).
+    /// 파일을 쓸 때 직전 파일을 .bak으로 남기고, 읽다가 깨져 있으면 .bak에서 되살린다.
     /// </summary>
     public sealed class JsonStore
     {
@@ -23,22 +24,51 @@ namespace MapleHud.Core
         private readonly Dictionary<string, string> _data = new Dictionary<string, string>();
         private bool _dirty;
 
+        /// <summary>파일이 깨져 있어서 백업에서 되살렸는지 (또는 둘 다 못 읽어 비우고 시작했는지)</summary>
+        public bool Recovered { get; private set; }
+
         public JsonStore(string path)
         {
             _path = path;
             if (path == null || !File.Exists(path)) return;
+            if (Load(path)) return;
+            // 깨진 파일은 지우지 않고 옆에 남겨 두고(원인 확인용), 직전 백업에서 되살린다
+            Recovered = true;
+            try { File.Copy(path, path + ".broken", true); }
+            catch (IOException) { }
+            if (File.Exists(path + ".bak") && Load(path + ".bak")) _dirty = true;
+        }
+
+        private bool Load(string file)
+        {
+            _data.Clear();
             try
             {
-                using (var doc = JsonDocument.Parse(File.ReadAllText(path)))
+                using (var doc = JsonDocument.Parse(File.ReadAllText(file)))
                 {
-                    if (doc.RootElement.ValueKind != JsonValueKind.Object) return;
+                    if (doc.RootElement.ValueKind != JsonValueKind.Object) return false;
                     foreach (var p in doc.RootElement.EnumerateObject()) _data[p.Name] = p.Value.GetRawText();
                 }
+                return true;
             }
-            catch (Exception e) when (e is IOException || e is JsonException)
+            catch (Exception e) when (e is IOException || e is JsonException || e is UnauthorizedAccessException)
             {
-                // 깨진 파일이면 비우고 시작한다
                 _data.Clear();
+                return false;
+            }
+        }
+
+        /// <summary>JSON 텍스트인지 (API가 점검 페이지 같은 HTML을 돌려줘도 저장소를 깨뜨리지 않게)</summary>
+        public static bool IsJson(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            try
+            {
+                using (JsonDocument.Parse(text)) return true;
+            }
+            catch (JsonException)
+            {
+                return false;
             }
         }
 
@@ -50,6 +80,7 @@ namespace MapleHud.Core
 
         public void SetRaw(string key, string json)
         {
+            if (!IsJson(json)) throw new ArgumentException("not JSON: " + key, nameof(json));
             _data[key] = json;
             _dirty = true;
         }
@@ -97,7 +128,8 @@ namespace MapleHud.Core
 
         public CachedJson SetCached(string key, string dataJson, long now)
         {
-            SetRaw(key, "{\"at\":" + now + ",\"data\":" + (string.IsNullOrEmpty(dataJson) ? "null" : dataJson) + "}");
+            if (!IsJson(dataJson)) dataJson = "null";
+            SetRaw(key, "{\"at\":" + now + ",\"data\":" + dataJson + "}");
             return new CachedJson { At = now, Data = dataJson };
         }
 
@@ -124,8 +156,25 @@ namespace MapleHud.Core
             Directory.CreateDirectory(Path.GetDirectoryName(_path));
             var tmp = _path + ".tmp";
             File.WriteAllText(tmp, sb.ToString());
-            if (File.Exists(_path)) File.Delete(_path);
-            File.Move(tmp, _path);
+            if (File.Exists(_path))
+            {
+                try
+                {
+                    // 바꿔치기하면서 직전 파일을 .bak으로 남긴다
+                    File.Replace(tmp, _path, _path + ".bak", true);
+                }
+                catch (IOException)
+                {
+                    // 백신·동기화 프로그램이 잡고 있으면 바꿔치기가 안 될 때가 있다
+                    File.Copy(_path, _path + ".bak", true);
+                    File.Delete(_path);
+                    File.Move(tmp, _path);
+                }
+            }
+            else
+            {
+                File.Move(tmp, _path);
+            }
             _dirty = false;
         }
     }

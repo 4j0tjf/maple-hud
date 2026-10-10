@@ -22,7 +22,8 @@ namespace MapleHud
         private static string SettingsPath => Path.Combine(DataDir, "settings.json");
 
         private readonly HttpClient _http = NexonApi.CreateHttpClient();
-        private readonly JsonStore _store;
+        private readonly JsonStore _store;   // API 캐시 (store.json)
+        private readonly JsonStore _prefs;   // 사용자 설정: 캐릭터별 표시 항목·접기 상태 (prefs.json)
         private readonly SyncEngine _engine;
         private readonly HudController _controller;
         private readonly FontSet _fonts;
@@ -42,9 +43,11 @@ namespace MapleHud
         private SettingsForm _settingsForm;
         private Exception _loggedError;
 
-        // 저장 직후 알림: 동기화가 끝날 때까지 진행 상황을 보여주고, 끝나면 몇 초 뒤 사라진다
+        // 잠깐 띄우는 알림 (설정 저장, 유지하기, API 불러오기):
+        // 동기화가 끝날 때까지 진행 상황을 보여주고, 끝나면 몇 초 뒤 사라진다
         private const long FlashMs = 5000;
-        private bool _flashSaved;
+        private string _flashText;
+        private bool _flashCount;     // 끝나면 "캐릭터 N명 반영"을 붙인다
         private bool _flashSynced;
         private string _flashError;
         private long _flashUntil;
@@ -55,9 +58,18 @@ namespace MapleHud
             _store = new JsonStore(Path.Combine(DataDir, "store.json"));
             // 한 달 넘게 안 쓴 캐시(더 이상 표시하지 않는 캐릭터 등)를 정리한다
             _store.Prune(31L * 24 * 3600 * 1000, KstTime.NowMs());
+            _prefs = new JsonStore(Path.Combine(DataDir, "prefs.json"));
+            // 예전 버전은 사용자 설정을 캐시 파일에 같이 두었다: 옮겨 온다 (설정 쪽을 먼저 쓴다)
+            if (HudController.MigratePrefs(_store, _prefs) > 0)
+            {
+                _prefs.Flush();
+                _store.Flush();
+            }
+            if (_store.Recovered || _prefs.Recovered)
+                Log(new IOException("깨진 저장 파일을 백업에서 되살렸습니다: " + (_prefs.Recovered ? "prefs.json " : "") + (_store.Recovered ? "store.json" : "")));
 
             _engine = new SyncEngine(_settings, _store, s => new NexonApi(_http, s.ApiKey, s.ApiBase));
-            _controller = new HudController(_engine, _store, _settings);
+            _controller = new HudController(_engine, _prefs, _settings);
             _fonts = FontSet.Load(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "fonts"));
             _renderer = new HudRenderer(_fonts);
             _avatars = new AvatarCache(_http, Path.Combine(CacheDir, "avatars"));
@@ -145,7 +157,7 @@ namespace MapleHud
 
             if (_flashUntil > 0 && now >= _flashUntil)
             {
-                _flashSaved = false;
+                _flashText = null;
                 _flashError = null;
                 _flashUntil = 0;
                 Invalidate(body: true, rebuild: true);
@@ -179,11 +191,22 @@ namespace MapleHud
                 case "edit":
                     _controller.ToggleEdit(r.Key);
                     break;
+                case "keep":
+                    _controller.EditSelection(r.Key, "keep", null);
+                    ShowFlash("내 설정을 유지합니다 · 인게임 스케줄러 등록이 바뀌어도 그대로 둡니다", countChars: false);
+                    break;
+                case "reload":
+                    // 내가 고른 것을 지우고 인게임 스케줄러 기준으로, 스케줄러도 API에서 새로 받는다
+                    _controller.EditSelection(r.Key, "reset", null);
+                    ShowFlash("인게임 스케줄러 기준으로 되돌렸습니다", countChars: false);
+                    _prefs.Flush();
+                    _engine.RefreshNow();
+                    break;
                 default:
                     _controller.EditSelection(r.Key, r.Action, r.Id);
                     break;
             }
-            _store.Flush();
+            _prefs.Flush();
             Invalidate(body: true, rebuild: true);
         }
 
@@ -239,10 +262,7 @@ namespace MapleHud
                 {
                     // 레지스트리를 못 쓰는 환경이면 자동 실행만 건너뛴다
                 }
-                _flashSaved = true;
-                _flashSynced = false;
-                _flashError = null;
-                _flashUntil = 0;
+                ShowFlash("설정을 저장했습니다", countChars: true);
                 ApplySettings(form.Result, persist: true);
                 _window.BringToFront2();
             };
@@ -282,22 +302,31 @@ namespace MapleHud
             Invalidate(body: true, rebuild: true);
         }
 
+        private void ShowFlash(string text, bool countChars)
+        {
+            _flashText = text;
+            _flashCount = countChars;
+            _flashSynced = false;
+            _flashError = null;
+            _flashUntil = 0;
+        }
+
         private Notice FlashNotice(HudView view, long now)
         {
-            if (!_flashSaved && _flashError == null) return null;
+            if (_flashText == null && _flashError == null) return null;
             if (_flashError == null && _engine.Syncing)
             {
                 _flashUntil = 0;
                 _flashSynced = true;
                 // 카드가 아직 없으면 진행 상황은 카드 자리에 나온다
-                return new Notice("success", view.Cards.Count == 0 ? "설정을 저장했습니다"
-                    : "설정을 저장했습니다 · " + (_engine.Progress ?? "불러오는 중…"));
+                return new Notice("success", view.Cards.Count == 0 ? _flashText
+                    : _flashText + " · " + (_engine.Progress ?? "불러오는 중…"));
             }
             if (_flashUntil == 0) _flashUntil = now + FlashMs;
             if (_flashError != null) return new Notice("error", "설정 파일을 저장하지 못했습니다: " + _flashError);
             int loaded = _engine.Chars.Count(c => c.Body != null);
-            return new Notice("success", !_flashSynced || _engine.Demo || loaded == 0 ? "설정을 저장했습니다"
-                : "설정을 저장했습니다 · 캐릭터 " + loaded + "명 반영");
+            return new Notice("success", !_flashCount || !_flashSynced || _engine.Demo || loaded == 0 ? _flashText
+                : _flashText + " · 캐릭터 " + loaded + "명 반영");
         }
 
         /* ---------- 트레이 ---------- */
@@ -450,6 +479,7 @@ namespace MapleHud
             _timer.Stop();
             _tray.Visible = false;
             _store.Flush();
+            _prefs.Flush();
             _tray.Dispose();
             _window.Close();
             _window.Dispose();

@@ -175,6 +175,31 @@ test('표시 설정 편집 동작', () => {
   assert.equal(view(sel).daily.length, 2);
 });
 
+test('유지하기: 지금 보이는 대로 고정하고 새로 등록한 항목은 숨긴다', () => {
+  const before = body({ daily_contents: [content('몬스터파크'), content('우르스'), content('미등록', { registration_flag: 'false' })] });
+  const at = (b, sel) => scheduler.normalize(b, NOW - MIN, NOW, { selection: sel });
+  let sel = scheduler.editSelection(null, at(before, null), 'item', 'daily:우르스');
+  assert.equal(at(before, sel).kept, false);
+  sel = scheduler.editSelection(sel, at(before, sel), 'keep');
+  assert.equal(sel.kept, true);
+
+  // 인게임에서 우르스·미등록을 등록하고 새 콘텐츠도 생겼다
+  const after = body({ daily_contents: [content('몬스터파크'), content('우르스'), content('미등록'), content('새 콘텐츠')] });
+  const kept = at(after, sel);
+  assert.deepEqual(kept.daily.map((it) => it.name), ['몬스터파크']);
+  assert.equal(kept.kept, true);
+  assert.equal(kept.hiddenNew, 1);
+
+  // 유지하지 않았다면 인게임 등록을 따른다
+  const follow = at(after, { items: { 'daily:우르스': false } });
+  assert.deepEqual(follow.daily.map((it) => it.name), ['몬스터파크', '미등록', '새 콘텐츠']);
+
+  // 유지 중에도 켜고 끌 수 있고, 유지 상태는 이어진다
+  sel = scheduler.editSelection(sel, kept, 'item', 'daily:새 콘텐츠');
+  assert.equal(sel.kept, true);
+  assert.deepEqual(at(after, sel).daily.map((it) => it.name), ['몬스터파크', '새 콘텐츠']);
+});
+
 test('보스 난이도가 바뀌어도 선택이 유지된다', () => {
   const sel = { items: { 'boss:스우': false } };
   const m = scheduler.normalize(body({ boss_contents: [boss('스우', { difficulty: '익스트림' })] }), NOW - MIN, NOW, { selection: sel });
