@@ -117,6 +117,17 @@ namespace MapleHud.Core
             _ = SyncAsync(true);
         }
 
+        /// <summary>
+        /// 전체 화면 게임에서 나왔을 때 부른다. 게임하는 동안은 받지 않았으니,
+        /// 마지막으로 받은 지 maxAge 넘었으면 정기 갱신을 기다리지 않고 바로 새로 받는다.
+        /// </summary>
+        public bool RefreshIfOlder(long maxAge)
+        {
+            if (Demo || Syncing || LastSync == 0 || Now - LastSync < maxAge) return false;
+            _ = SyncAsync(true);
+            return true;
+        }
+
         private void ScheduleNext()
         {
             var now = Now;

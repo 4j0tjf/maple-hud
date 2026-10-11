@@ -52,7 +52,7 @@ namespace MapleHud.Core
                 case JsonValueKind.Number: return v.TryGetDouble(out var d) && d == 1;
                 case JsonValueKind.String:
                     var s = v.GetString();
-                    return s == "true" || s == "1";
+                    return string.Equals(s, "true", System.StringComparison.OrdinalIgnoreCase) || s == "1";
                 default: return false;
             }
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -150,7 +151,12 @@ namespace MapleHud
             if (idle != _idle)
             {
                 _idle = idle;
-                if (!idle) Invalidate(body: true, rebuild: true);
+                if (!idle)
+                {
+                    Invalidate(body: true, rebuild: true);
+                    // 게임에서 나오면 정기 갱신을 기다리지 않고 바로 새로 받는다 (방금 한 콘텐츠를 빨리 보여주려고)
+                    _engine.RefreshIfOlder(3 * 60 * 1000);
+                }
             }
             _engine.Tick(_idle);
             if (_idle) return;
@@ -337,6 +343,7 @@ namespace MapleHud
             menu.Items.Add(new ToolStripMenuItem("Maple Scheduler HUD") { Enabled = false });
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("지금 새로고침", null, (s, e) => _engine.ManualRefresh());
+            menu.Items.Add("스케줄러 원본 보기 (문제 확인용)", null, (s, e) => ShowReport());
             menu.Items.Add("설정…", null, (s, e) => ShowSettings());
             menu.Items.Add("맨 앞으로 가져오기", null, (s, e) => _window.BringToFront2());
             menu.Items.Add(new ToolStripSeparator());
@@ -386,6 +393,25 @@ namespace MapleHud
             menu.Items.Add("종료", null, (s, e) => ExitThread());
             return menu;
         }
+
+        // 넥슨 API가 준 값과 HUD 판정을 항목별로 적어 메모장으로 연다
+        private void ShowReport()
+        {
+            try
+            {
+                Directory.CreateDirectory(CacheDir);
+                var path = Path.Combine(CacheDir, "scheduler-report.txt");
+                File.WriteAllText(path, SchedulerReport.Build(_engine.Chars, KstTime.NowMs()), new System.Text.UTF8Encoding(true));
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            }
+            catch (Exception e)
+            {
+                Log(e);
+                MessageBox.Show("스케줄러 원본을 열지 못했습니다: " + e.Message, "Maple Scheduler HUD", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        internal string ReportForTest() => SchedulerReport.Build(_engine.Chars, KstTime.NowMs());
 
         private static bool SafeAutoStart()
         {

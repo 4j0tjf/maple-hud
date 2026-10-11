@@ -130,8 +130,9 @@ namespace MapleHud.Core
             int max = (int)J.Num(it, "max_count");
             var questState = J.StrOrNull(it, "quest_state");
             var type = J.Str(it, "type");
-            bool isQuest = type == "quest" || (max <= 0 && questState != null);
-            bool done = isQuest ? questState == "2" : (max > 0 && now >= max);
+            bool isQuest = string.Equals(type, "quest", StringComparison.OrdinalIgnoreCase) || (max <= 0 && questState != null);
+            // quest_state "2"(완료)는 종류와 상관없이 완료로 본다. 퀘스트는 횟수가 다 차도 완료 보고 전이면 미완료
+            bool done = questState == "2" || (!isQuest && max > 0 && now >= max);
             var name = J.Str(it, "content_name");
             return new SchedItem
             {

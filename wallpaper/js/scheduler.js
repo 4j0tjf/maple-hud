@@ -23,7 +23,7 @@
   ];
 
   function isTrue(v) {
-    return v === true || v === 1 || v === 'true' || v === '1';
+    return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
   }
 
   function toNum(v) {
@@ -50,8 +50,9 @@
     var now = toNum(item.now_count);
     var max = toNum(item.max_count);
     var questState = item.quest_state == null ? null : String(item.quest_state);
-    var isQuest = item.type === 'quest' || (max <= 0 && questState !== null);
-    var done = isQuest ? questState === '2' : (max > 0 && now >= max);
+    var isQuest = String(item.type || '').toLowerCase() === 'quest' || (max <= 0 && questState !== null);
+    // quest_state "2"(완료)는 종류와 상관없이 완료로 본다. 퀘스트는 횟수가 다 차도 완료 보고 전이면 미완료
+    var done = questState === '2' || (!isQuest && max > 0 && now >= max);
     var name = String(item.content_name || '');
     return {
       key: group + ':' + name,

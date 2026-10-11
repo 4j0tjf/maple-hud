@@ -138,6 +138,13 @@ namespace MapleHud
                         var report = app.SelfTestReport(outPath) + (saveReport != null ? " | " + saveReport : "");
                         // 캐시해 둔 캐릭터가 이미지와 함께 보여야 한다
                         if (scenario == "cached" && !app.ShowsCachedCharacter) throw new InvalidOperationException(report);
+                        // 스케줄러 원본 보기: 캐시해 둔 캐릭터와 항목이 적혀 있어야 한다
+                        if (scenario == "cached")
+                        {
+                            var text = app.ReportForTest();
+                            if (!text.Contains("받은 시각") || !text.Contains("quest_state=")) throw new InvalidOperationException("report: " + text);
+                            report += " report=" + text.Length + "chars";
+                        }
                         SavePreviewJpeg(outPath, outPath + ".jpg");
                         GC.Collect();
                         GC.WaitForPendingFinalizers();
