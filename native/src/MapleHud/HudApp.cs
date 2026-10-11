@@ -93,7 +93,7 @@ namespace MapleHud
             };
             _avatars.Loaded += () => Invalidate(body: true);
 
-            _tray = new NotifyIcon { Icon = _icon, Text = "Maple Scheduler HUD", Visible = true, ContextMenuStrip = BuildMenu() };
+            _tray = new NotifyIcon { Icon = _icon, Text = ("Maple Scheduler HUD " + AppVersion.Display).Trim(), Visible = true, ContextMenuStrip = BuildMenu() };
             _tray.MouseClick += (s, e) => { if (e.Button == MouseButtons.Left) _window.BringToFront2(); };
 
             _window.Show();
@@ -340,7 +340,7 @@ namespace MapleHud
         private ContextMenuStrip BuildMenu()
         {
             var menu = new ContextMenuStrip();
-            menu.Items.Add(new ToolStripMenuItem("Maple Scheduler HUD") { Enabled = false });
+            menu.Items.Add(new ToolStripMenuItem(("Maple Scheduler HUD " + AppVersion.Display).Trim()) { Enabled = false });
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("지금 새로고침", null, (s, e) => _engine.ManualRefresh());
             menu.Items.Add("스케줄러 원본 보기 (문제 확인용)", null, (s, e) => ShowReport());
@@ -474,7 +474,8 @@ namespace MapleHud
             var layout = _window.CurrentLayout;
             return "panel=" + layout.Width + "x" + layout.Height + " regions=" + layout.Regions.Count +
                 " edit=" + layout.Regions.Count(r => r.Action == "edit") + " cards=" + _view.Cards.Count +
-                " demo=" + _view.Demo + " avatars=" + _avatars.LoadedCount + " font=" + _fonts.Regular.FamilyName;
+                " demo=" + _view.Demo + " avatars=" + _avatars.LoadedCount + " font=" + _fonts.Regular.FamilyName +
+                " version=" + AppVersion.Display.Replace(" ", "");
         }
 
         /* ---------- 마무리 ---------- */

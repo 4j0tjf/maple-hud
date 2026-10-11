@@ -40,7 +40,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - run: dotnet build native/src/MapleHud -c Release
+      - run: dotnet build native/src/MapleHud -c Release -p:SourceRevisionId=${{ github.sha }}
       - name: 자체 점검 (데모 모드로 실제 창을 띄우고 화면·메모리 기록)
         shell: pwsh
         timeout-minutes: 3

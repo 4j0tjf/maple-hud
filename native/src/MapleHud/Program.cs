@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -10,6 +11,7 @@ namespace MapleHud
     {
         private const string MutexName = "MapleSchedulerHUD.SingleInstance";
         private const string ShowEventName = "MapleSchedulerHUD.Show";
+        private const string QuitEventName = "MapleSchedulerHUD.Quit";
 
         private static bool _selfTest;
 
@@ -39,18 +41,19 @@ namespace MapleHud
 
             using (var mutex = new Mutex(true, MutexName, out bool first))
             {
-                if (!first)
+                if (!first && !ReplaceOtherVersion(mutex))
                 {
-                    // 이미 실행 중이면 그 창을 앞으로 가져오고 끝낸다 (실행 중인 쪽이 트레이 알림을 띄운다)
-                    try
-                    {
-                        using (var ev = EventWaitHandle.OpenExisting(ShowEventName)) ev.Set();
-                    }
-                    catch (WaitHandleCannotBeOpenedException)
-                    {
-                        // 먼저 뜬 쪽이 아직 준비 중
-                    }
+                    // 같은 버전이 이미 실행 중이면 그 창을 앞으로 가져오고 끝낸다 (실행 중인 쪽이 트레이 알림을 띄운다)
+                    Signal(ShowEventName);
                     return 0;
+                }
+                try
+                {
+                    AutoStart.Repoint();
+                }
+                catch (Exception e)
+                {
+                    HudApp.Log(e);
                 }
 
                 Application.EnableVisualStyles();
@@ -59,15 +62,83 @@ namespace MapleHud
                 Application.ThreadException += (s, e) => HudApp.Log(e.Exception);
 
                 using (var show = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName))
+                using (var quit = new EventWaitHandle(false, EventResetMode.AutoReset, QuitEventName))
                 {
                     var app = new HudApp();
                     var ui = SynchronizationContext.Current;
-                    var wait = ThreadPool.RegisterWaitForSingleObject(show, (state, timeout) => ui.Post(_ => app.ShowAlreadyRunning(), null), null, -1, false);
+                    var waitShow = ThreadPool.RegisterWaitForSingleObject(show, (state, timeout) => ui.Post(_ => app.ShowAlreadyRunning(), null), null, -1, false);
+                    // 새 버전이 "이제 그만"이라고 하면 저장하고 끝낸다
+                    var waitQuit = ThreadPool.RegisterWaitForSingleObject(quit, (state, timeout) => ui.Post(_ => app.ExitThread(), null), null, -1, true);
                     Application.Run(app);
-                    wait.Unregister(null);
+                    waitShow.Unregister(null);
+                    waitQuit.Unregister(null);
                 }
             }
             return 0;
+        }
+
+        private static void Signal(string name)
+        {
+            try
+            {
+                using (var ev = EventWaitHandle.OpenExisting(name)) ev.Set();
+            }
+            catch (WaitHandleCannotBeOpenedException)
+            {
+                // 먼저 뜬 쪽이 아직 준비 중이거나, 이 신호를 모르는 옛 버전
+            }
+        }
+
+        /// <summary>
+        /// 다른 폴더나 다른 버전의 HUD가 이미 떠 있으면(업데이트하면서 옛 것을 안 끈 경우) 바꿀지 묻는다.
+        /// 바꾸면 옛 것을 끄고 뮤텍스를 넘겨받아 true를 돌려준다.
+        /// </summary>
+        private static bool ReplaceOtherVersion(Mutex mutex)
+        {
+            var me = Process.GetCurrentProcess();
+            Process other = null;
+            foreach (var p in Process.GetProcessesByName(me.ProcessName))
+            {
+                if (p.Id != me.Id) { other = p; break; }
+            }
+            if (other == null) return false;
+
+            string path = null, version = null;
+            try
+            {
+                path = other.MainModule.FileName;
+                version = FileVersionInfo.GetVersionInfo(path).ProductVersion;
+            }
+            catch (Exception e) when (e is System.ComponentModel.Win32Exception || e is InvalidOperationException || e is IOException)
+            {
+                // 경로를 못 읽으면 다른 버전으로 본다
+            }
+            var mine = Application.ExecutablePath;
+            if (path != null && string.Equals(path, mine, StringComparison.OrdinalIgnoreCase) && version == AppVersion.Full) return false;
+
+            var text = "다른 Maple Scheduler HUD가 이미 실행 중입니다.\n\n" +
+                "실행 중: " + (version != null ? AppVersion.Format(version) : "버전 알 수 없음") + "\n" + (path ?? "") + "\n\n" +
+                "지금 실행한 것: " + AppVersion.Display + "\n" + mine + "\n\n" +
+                "실행 중인 것을 끄고 지금 실행한 것으로 바꿀까요?";
+            if (MessageBox.Show(text, "Maple Scheduler HUD", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return false;
+
+            // 새 버전은 신호를 받으면 저장하고 끝난다. 신호를 모르는 옛 버전이면 강제로 끝낸다
+            Signal(QuitEventName);
+            if (!other.WaitForExit(5000))
+            {
+                try { other.Kill(); }
+                catch (Exception e) when (e is System.ComponentModel.Win32Exception || e is InvalidOperationException) { }
+                other.WaitForExit(3000);
+            }
+            try
+            {
+                return mutex.WaitOne(5000);
+            }
+            catch (AbandonedMutexException)
+            {
+                // 강제로 끝난 쪽이 놓고 간 뮤텍스도 넘겨받은 것이다
+                return true;
+            }
         }
 
         private static bool MissingFiles(Exception e)

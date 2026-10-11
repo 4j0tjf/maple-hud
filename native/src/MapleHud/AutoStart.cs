@@ -10,6 +10,19 @@ namespace MapleHud
 
         private static string Command => "\"" + System.Windows.Forms.Application.ExecutablePath + "\"";
 
+        /// <summary>
+        /// 자동 실행이 다른 곳의 exe를 가리키면 지금 실행한 exe로 바꾼다.
+        /// 새 버전을 다른 폴더에 풀어 실행했을 때, 다음 부팅에 옛 버전이 뜨지 않게 한다.
+        /// </summary>
+        public static void Repoint()
+        {
+            using (var key = Registry.CurrentUser.OpenSubKey(RunKey, true))
+            {
+                var current = key?.GetValue(Name) as string;
+                if (current != null && current != Command) key.SetValue(Name, Command);
+            }
+        }
+
         public static bool Enabled
         {
             get
