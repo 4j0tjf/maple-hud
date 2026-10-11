@@ -127,7 +127,7 @@ namespace MapleHud.Core.Tests
             var sel = new Selection
             {
                 Groups = new Dictionary<string, bool> { ["weekly"] = false },
-                Items = new Dictionary<string, bool> { ["daily:우르스"] = false, ["daily:미등록"] = true, ["boss:검은 마법사"] = false }
+                Items = new Dictionary<string, bool> { ["daily:우르스"] = false, ["daily:미등록"] = true, ["boss:검은 마법사:하드"] = false }
             };
             var m = Scheduler.Normalize(b, Now - Min, Now, selection: sel);
             Assert.Equal(new[] { "몬스터파크", "미등록" }, m.Daily.Select(i => i.Name));
@@ -162,11 +162,22 @@ namespace MapleHud.Core.Tests
         }
 
         [Fact]
-        public void 보스_난이도가_바뀌어도_선택_유지()
+        public void 예전_이름만_쓴_보스_선택은_인게임_등록을_따른다()
         {
-            var sel = new Selection { Items = new Dictionary<string, bool> { ["boss:스우"] = false } };
-            var m = Scheduler.Normalize(Body(boss: new object[] { Boss("스우", difficulty: "익스트림") }), Now - Min, Now, selection: sel);
-            Assert.Empty(m.Boss);
+            // 예전 key(boss:이름)는 난이도끼리 섞여 저장됐으므로 믿지 않는다
+            var sel = new Selection { Items = new Dictionary<string, bool> { ["boss:스우"] = true }, Kept = true };
+            var m = Scheduler.Normalize(Body(boss: new object[]
+            {
+                Boss("스우", difficulty: "normal", reg: "false"), Boss("스우", difficulty: "hard", reg: "false"), Boss("스우", difficulty: "extreme")
+            }), Now - Min, Now, selection: sel);
+            Assert.Equal(new[] { "익스트림" }, m.Boss.Select(i => i.Difficulty));
+            Assert.Equal(0, m.HiddenNew);
+
+            // 유지하기를 다시 누르면 난이도별 key로 적고 예전 key는 지운다
+            var kept = Scheduler.EditSelection(sel, m, "keep", null);
+            Assert.False(kept.Items.ContainsKey("boss:스우"));
+            Assert.True(kept.Items["boss:스우:extreme"]);
+            Assert.False(kept.Items["boss:스우:hard"]);
         }
     }
 }

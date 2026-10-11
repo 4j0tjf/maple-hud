@@ -127,6 +127,9 @@
     var extra = '';
     if (isBoss && item.difficulty) {
       extra = '<span class="diff diff-' + (DIFFICULTY[item.difficulty] || 'etc') + '">' + esc(item.difficulty) + '</span>';
+    } else if (item.score && item.now > 0) {
+      // 점수형 (예: 길드 지하 수로)
+      extra = '<span class="ct">' + item.now.toLocaleString('ko-KR') + '</span>';
     } else if (!item.quest && item.max > 1) {
       extra = '<span class="ct">' + item.now + '/' + item.max + '</span>';
     }

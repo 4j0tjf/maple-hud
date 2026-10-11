@@ -855,12 +855,21 @@ namespace MapleHud.Core.Render
 
         private string ChipLabel(ChipSpec s) => s.Boss || s.Item.IsBoss ? s.Item.Name : ShortName(s.Item.Name);
 
+        // 횟수형은 "2/3", 점수형은 점수("31,570"). 퀘스트와 편집 화면에서는 없음
+        private static string CountText(ChipSpec s)
+        {
+            var it = s.Item;
+            if (s.Pick || it.Quest) return null;
+            if (it.Score) return it.Now > 0 ? it.Now.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) : null;
+            return it.Max > 1 ? it.Now + "/" + it.Max : null;
+        }
+
         private float ChipExtrasWidth(ChipSpec s)
         {
             var it = s.Item;
             float wsum = 0;
             if (it.IsBoss && it.Difficulty.Length > 0) wsum += 5 + Width(it.Difficulty, 800, 10) + 10;
-            else if (!s.Pick && !it.Quest && it.Max > 1) wsum += 5 + Width(it.Now + "/" + it.Max, 700, 10.5f);
+            else if (CountText(s) is string ct) wsum += 5 + Width(ct, 700, 10.5f);
             if (!s.Pick && it.IsBoss && (it.Reset == ResetKind.Monthly || it.Reset == ResetKind.Daily)) wsum += 5 + Width("월", 700, 10.5f) + 8;
             if (s.Pick && it.Registered) wsum += 5 + 9;
             return wsum;
@@ -949,9 +958,9 @@ namespace MapleHud.Core.Render
                 Text(it.Difficulty, br.Left + 5, br.Top, 15, 800, 10, dim ? dt.WithAlpha(140) : dt, shadow: false);
                 ex = br.Right;
             }
-            else if (!s.Pick && !it.Quest && it.Max > 1)
+            else if (CountText(s) is string ct)
             {
-                ex += 5 + Text(it.Now + "/" + it.Max, ex + 5, y, ChipH, 700, 10.5f, state == "done" ? _th.Text3 : _th.Text2);
+                ex += 5 + Text(ct, ex + 5, y, ChipH, 700, 10.5f, state == "done" ? _th.Text3 : _th.Text2);
             }
             if (!s.Pick && it.IsBoss && (it.Reset == ResetKind.Monthly || it.Reset == ResetKind.Daily))
             {

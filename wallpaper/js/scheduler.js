@@ -51,8 +51,10 @@
     var max = toNum(item.max_count);
     var questState = item.quest_state == null ? null : String(item.quest_state);
     var isQuest = String(item.type || '').toLowerCase() === 'quest' || (max <= 0 && questState !== null);
+    // 최대치가 0이면 점수형 (예: 길드 지하 수로 31570/0): 이번 주에 한 번이라도 했으면 완료
+    var score = !isQuest && max <= 0;
     // quest_state "2"(완료)는 종류와 상관없이 완료로 본다. 퀘스트는 횟수가 다 차도 완료 보고 전이면 미완료
-    var done = questState === '2' || (!isQuest && max > 0 && now >= max);
+    var done = questState === '2' || (!isQuest && (score ? now > 0 : now >= max));
     var name = String(item.content_name || '');
     return {
       key: group + ':' + name,
@@ -63,21 +65,38 @@
       now: now,
       max: max,
       quest: isQuest,
+      score: score,
       done: done,
       progress: !done && (questState === '1' || now > 0),
       reset: reset
     };
   }
 
-  // 보스는 난이도가 주마다 바뀔 수 있어서 이름으로만 구분한다
+  // API는 같은 보스를 난이도마다 따로 보낸다. 예전에는 이름만 key로 써서(boss:이름) 난이도끼리 섞였다
+  function bossKey(name, difficulty) {
+    return 'boss:' + name + ':' + String(difficulty || '').trim().toLowerCase();
+  }
+
+  function legacyBossKey(name) {
+    return 'boss:' + name;
+  }
+
+  var DIFFICULTY_LABEL = { easy: '이지', normal: '노멀', hard: '하드', chaos: '카오스', extreme: '익스트림' };
+
+  function difficultyLabel(d) {
+    var s = d == null ? '' : String(d);
+    return DIFFICULTY_LABEL[s.trim().toLowerCase()] || s;
+  }
+
   function normalizeBoss(item) {
     var name = String(item.content_name || '');
     var reset = cycleToReset(item.cycle);
     return {
-      key: 'boss:' + name,
+      key: bossKey(name, item.difficulty),
       group: bossGroup(reset),
       name: name,
-      difficulty: item.difficulty ? String(item.difficulty) : '',
+      boss: true,
+      difficulty: difficultyLabel(item.difficulty),
       cycle: item.cycle ? String(item.cycle) : '',
       order: toNum(item.list_order_no),
       registered: isTrue(item.registration_flag),
@@ -143,11 +162,14 @@
     var kept = !!sel.kept;
     // 기본 규칙: 등록된 항목만. 등록된 항목이 하나도 없으면 전체를 보여준다
     // 유지 중이면 기본 규칙 대신 "고르지 않은 항목은 숨김"
-    var showAll = !kept && (!!opts.showAll || registered === 0);
+    var showAllRule = !!opts.showAll || registered === 0;
+    var showAll = !kept && showAllRule;
     // 사용자 선택: 분류를 끄면 그 분류 전체를 숨기고, 항목별 선택은 기본 규칙보다 우선한다
     var hiddenNew = 0;
     all.forEach(function (it) {
       if (typeof selItems[it.key] === 'boolean') it.itemOn = selItems[it.key];
+      // 예전(이름만) 보스 선택은 난이도끼리 섞여 믿을 수 없으니 기본 규칙(인게임 등록)을 따른다
+      else if (it.boss && typeof selItems[legacyBossKey(it.name)] === 'boolean') it.itemOn = showAllRule || it.registered;
       else {
         it.itemOn = !kept && (showAll || it.registered);
         if (kept && it.registered) hiddenNew++;
@@ -228,7 +250,10 @@
     } else if (action === 'keep') {
       // 지금 보이는 대로 모든 항목을 적어 두고 유지 (이후 인게임 등록이 바뀌어도 그대로)
       groups.forEach(function (g) {
-        g.items.forEach(function (it) { next.items[it.key] = it.itemOn; });
+        g.items.forEach(function (it) {
+          next.items[it.key] = it.itemOn;
+          if (it.boss) delete next.items[legacyBossKey(it.name)];
+        });
       });
       next.kept = true;
     } else if (action === 'all' || action === 'none') {
@@ -250,6 +275,7 @@
     normalize: normalize,
     hasRegistered: hasRegistered,
     editSelection: editSelection,
+    bossKey: bossKey,
     GROUPS: GROUPS,
     cycleToReset: cycleToReset,
     DATA_DELAY_MS: DATA_DELAY_MS

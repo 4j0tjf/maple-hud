@@ -69,7 +69,7 @@ namespace MapleHud.Core
             foreach (var it in list)
             {
                 var name = J.Str(it, "content_name");
-                verdict.TryGetValue("boss:" + name, out var v);
+                verdict.TryGetValue(Scheduler.BossKey(name, J.Str(it, "difficulty")), out var v);
                 sb.AppendLine("    " + name + " " + J.Str(it, "difficulty") + "  |  " + (J.Flag(it, "registration_flag") ? "등록" : "미등록") +
                     " · " + J.Str(it, "cycle") + " · complete_flag=" + J.Str(it, "complete_flag") + "  →  " + State(v));
             }

@@ -137,7 +137,7 @@ test('캐릭터별 표시 설정: 분류 끄기, 항목 선택이 기본 규칙�
   });
   const selection = {
     groups: { weekly: false },
-    items: { 'daily:우르스': false, 'daily:미등록': true, 'boss:검은 마법사': false }
+    items: { 'daily:우르스': false, 'daily:미등록': true, 'boss:검은 마법사:하드': false }
   };
   const m = scheduler.normalize(b, NOW - MIN, NOW, { selection });
   assert.deepEqual(m.daily.map((it) => it.name), ['몬스터파크', '미등록']);
@@ -200,8 +200,36 @@ test('유지하기: 지금 보이는 대로 고정하고 새로 등록한 항목
   assert.deepEqual(at(after, sel).daily.map((it) => it.name), ['몬스터파크', '새 콘텐츠']);
 });
 
-test('보스 난이도가 바뀌어도 선택이 유지된다', () => {
-  const sel = { items: { 'boss:스우': false } };
-  const m = scheduler.normalize(body({ boss_contents: [boss('스우', { difficulty: '익스트림' })] }), NOW - MIN, NOW, { selection: sel });
-  assert.equal(m.boss.length, 0);
+test('예전 이름만 쓴 보스 선택은 인게임 등록을 따른다', () => {
+  const sel = { items: { 'boss:스우': true }, kept: true };
+  const m = scheduler.normalize(body({ boss_contents: [
+    boss('스우', { difficulty: 'normal', registration_flag: 'false' }),
+    boss('스우', { difficulty: 'hard', registration_flag: 'false' }),
+    boss('스우', { difficulty: 'extreme' })
+  ] }), NOW - MIN, NOW, { selection: sel });
+  assert.deepEqual(m.boss.map((it) => it.difficulty), ['익스트림']);
+  const kept = scheduler.editSelection(sel, m, 'keep');
+  assert.equal('boss:스우' in kept.items, false);
+  assert.equal(kept.items['boss:스우:extreme'], true);
+});
+
+test('실제 응답: 난이도별 보스와 점수형 주간 항목', () => {
+  const b = body({
+    weekly_contents: [content('[길드] 지하 수로', { now_count: 31570, max_count: 0 }), content('[길드] 플래그 레이스', { now_count: 0, max_count: 0 })],
+    boss_contents: [
+      boss('루시드', { difficulty: 'normal', cycle: 'bossWeekly', registration_flag: 'false' }),
+      boss('루시드', { difficulty: 'hard', cycle: 'bossWeekly', complete_flag: 'true' }),
+      boss('카링', { difficulty: 'easy', cycle: 'bossWeekly', complete_flag: 'true' }),
+      boss('카링', { difficulty: 'normal', cycle: 'bossWeekly', registration_flag: 'false' }),
+      boss('아카이럼', { difficulty: 'normal', cycle: 'bossDaily' })
+    ]
+  });
+  const m = scheduler.normalize(b, NOW - MIN, NOW);
+  assert.deepEqual(m.weekly.map((it) => [it.name, it.done, it.score]), [['[길드] 지하 수로', true, true], ['[길드] 플래그 레이스', false, true]]);
+  assert.deepEqual(m.boss.map((it) => [it.name, it.difficulty, it.done, it.group]), [
+    ['루시드', '하드', true, 'bossWeekly'], ['카링', '이지', true, 'bossWeekly'], ['아카이럼', '노멀', false, 'bossDaily']
+  ]);
+  const sel = scheduler.editSelection(null, m, 'item', scheduler.bossKey('카링', 'normal'));
+  const after = scheduler.normalize(b, NOW - MIN, NOW, { selection: sel });
+  assert.deepEqual(after.boss.map((it) => it.name + ' ' + it.difficulty), ['루시드 하드', '카링 이지', '카링 노멀', '아카이럼 노멀']);
 });

@@ -8,7 +8,7 @@ namespace MapleHud.Core
 {
     public sealed class SchedItem
     {
-        public string Key;        // 표시 설정에 쓰는 식별자 (분류:이름, 보스는 boss:이름)
+        public string Key;        // 표시 설정에 쓰는 식별자 (분류:이름, 보스는 boss:이름:난이도)
         public string Group;      // daily, weekly, bossWeekly, bossMonthly, bossDaily
         public string Name;
         public bool IsBoss;
@@ -16,6 +16,7 @@ namespace MapleHud.Core
         public int Now;
         public int Max;
         public bool Quest;        // 횟수가 아니라 퀘스트 진행 상태로 완료를 판단
+        public bool Score;        // 최대치 없이 점수·횟수만 오는 항목 (길드 지하 수로 등). 한 번이라도 하면 완료
         public bool Done;
         public bool Progress;
         public ResetKind Reset;
@@ -131,8 +132,10 @@ namespace MapleHud.Core
             var questState = J.StrOrNull(it, "quest_state");
             var type = J.Str(it, "type");
             bool isQuest = string.Equals(type, "quest", StringComparison.OrdinalIgnoreCase) || (max <= 0 && questState != null);
+            // 최대치가 0이면 점수형 (예: 길드 지하 수로 31570/0): 이번 주에 한 번이라도 했으면 완료
+            bool score = !isQuest && max <= 0;
             // quest_state "2"(완료)는 종류와 상관없이 완료로 본다. 퀘스트는 횟수가 다 차도 완료 보고 전이면 미완료
-            bool done = questState == "2" || (!isQuest && max > 0 && now >= max);
+            bool done = questState == "2" || (!isQuest && (score ? now > 0 : now >= max));
             var name = J.Str(it, "content_name");
             return new SchedItem
             {
@@ -143,25 +146,49 @@ namespace MapleHud.Core
                 Now = now,
                 Max = max,
                 Quest = isQuest,
+                Score = score,
                 Done = done,
                 Progress = !done && (questState == "1" || now > 0),
                 Reset = reset
             };
         }
 
-        // 보스는 난이도가 주마다 바뀔 수 있어서 이름으로만 구분한다
+        /// <summary>
+        /// 보스 항목 key. API는 같은 보스를 난이도마다 따로 보낸다 (easy, normal, hard …).
+        /// 예전에는 이름만 썼는데(boss:이름) 난이도끼리 섞여서 바꿨다. 예전 key는 LegacyBossKey
+        /// </summary>
+        public static string BossKey(string name, string difficulty) =>
+            "boss:" + name + ":" + (difficulty ?? "").Trim().ToLowerInvariant();
+
+        public static string LegacyBossKey(string name) => "boss:" + name;
+
+        /// <summary>API 난이도(영문 소문자)를 한글로</summary>
+        public static string DifficultyLabel(string d)
+        {
+            switch ((d ?? "").Trim().ToLowerInvariant())
+            {
+                case "easy": return "이지";
+                case "normal": return "노멀";
+                case "hard": return "하드";
+                case "chaos": return "카오스";
+                case "extreme": return "익스트림";
+                default: return d ?? "";
+            }
+        }
+
         private static SchedItem Boss(JsonElement it)
         {
             var name = J.Str(it, "content_name");
             var cycle = J.Str(it, "cycle");
             var reset = CycleToReset(cycle);
+            var difficulty = J.Str(it, "difficulty");
             return new SchedItem
             {
-                Key = "boss:" + name,
+                Key = BossKey(name, difficulty),
                 Group = BossGroup(reset),
                 Name = name,
                 IsBoss = true,
-                Difficulty = J.Str(it, "difficulty"),
+                Difficulty = DifficultyLabel(difficulty),
                 Cycle = cycle,
                 Order = J.Num(it, "list_order_no"),
                 Registered = J.Flag(it, "registration_flag"),
@@ -204,12 +231,15 @@ namespace MapleHud.Core
             bool kept = selection != null && selection.Kept;
             // 기본 규칙: 등록된 항목만. 등록된 항목이 하나도 없으면 전체를 보여준다
             // 유지 중이면 기본 규칙 대신 "고르지 않은 항목은 숨김"
-            bool showAllByDefault = !kept && (showAll || registered == 0);
+            bool showAllRule = showAll || registered == 0;
+            bool showAllByDefault = !kept && showAllRule;
             // 사용자 선택: 분류를 끄면 그 분류 전체를 숨기고, 항목별 선택은 기본 규칙보다 우선한다
             int hiddenNew = 0;
             foreach (var it in all)
             {
                 if (itemsSel.TryGetValue(it.Key, out var on)) it.ItemOn = on;
+                // 예전(이름만) 보스 선택은 난이도끼리 섞여 믿을 수 없으니 기본 규칙(인게임 등록)을 따른다
+                else if (it.IsBoss && itemsSel.ContainsKey(LegacyBossKey(it.Name))) it.ItemOn = showAllRule || it.Registered;
                 else
                 {
                     it.ItemOn = !kept && (showAllByDefault || it.Registered);
@@ -279,7 +309,11 @@ namespace MapleHud.Core
                     else next.Groups[id] = false;
                     break;
                 case "keep":
-                    foreach (var it in groups.SelectMany(x => x.Items)) next.Items[it.Key] = it.ItemOn;
+                    foreach (var it in groups.SelectMany(x => x.Items))
+                    {
+                        next.Items[it.Key] = it.ItemOn;
+                        if (it.IsBoss) next.Items.Remove(LegacyBossKey(it.Name));
+                    }
                     next.Kept = true;
                     break;
                 case "all":
