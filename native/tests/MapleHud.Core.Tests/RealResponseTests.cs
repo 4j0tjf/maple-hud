@@ -37,6 +37,23 @@ namespace MapleHud.Core.Tests
         }
 
         [Fact]
+        public void 이전_빌드에서_유지하기한_캐릭터도_등록된_난이도만_보인다()
+        {
+            // 이전 빌드의 유지하기: 보스를 이름으로만 적었고, 같은 이름의 마지막 난이도 값이 남았다
+            // (루시드 easy/normal/hard 중 hard가 마지막 → "boss:루시드" = true → 예전엔 세 난이도가 다 보였다)
+            var old = new Selection { Kept = true };
+            foreach (var g in new[] { ("루시드", true), ("카링", false), ("아카이럼", true), ("검은 마법사", true) })
+                old.Items["boss:" + g.Item1] = g.Item2;
+            var m = Scheduler.Normalize(Body(boss: Bosses), Now - Min, Now, selection: old);
+            Assert.Equal(new[] { "루시드 하드", "카링 이지", "아카이럼 노멀", "검은 마법사 하드" }, m.Boss.Select(b => b.Name + " " + b.Difficulty));
+            // 유지하기를 다시 누르면 난이도별로 다시 적는다
+            var again = Scheduler.EditSelection(old, m, "keep", null);
+            Assert.True(again.Items[Scheduler.BossKey("루시드", "hard")]);
+            Assert.False(again.Items[Scheduler.BossKey("루시드", "easy")]);
+            Assert.DoesNotContain("boss:루시드", again.Items.Keys);
+        }
+
+        [Fact]
         public void 점수만_오는_주간_항목은_한_번_하면_완료()
         {
             var m = Scheduler.Normalize(Body(weekly: new object[]
