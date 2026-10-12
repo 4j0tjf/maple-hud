@@ -129,8 +129,9 @@
       extra = '<span class="diff diff-' + (DIFFICULTY[item.difficulty] || 'etc') + '">' + esc(item.difficulty) + '</span>';
     } else if (item.score && item.now > 0) {
       // 점수형 (예: 길드 지하 수로)
-      extra = '<span class="ct">' + item.now.toLocaleString('ko-KR') + '</span>';
-    } else if (!item.quest && item.max > 1) {
+      extra = '<span class="ct">' + item.now.toLocaleString('ko-KR') + '점</span>';
+    } else if (item.max > 1) {
+      // 인게임 스케줄러처럼 퀘스트도 진행도를 보여준다 (0/100)
       extra = '<span class="ct">' + item.now + '/' + item.max + '</span>';
     }
     var title = item.name + (isBoss && item.difficulty ? ' (' + item.difficulty + ')' : '');
@@ -243,7 +244,8 @@
         avatar(card) +
         '<div class="who">' +
           '<div class="name-row"><span class="name">' + esc(card.name) + '</span>' + lv + exp + warn + '</div>' +
-          '<div class="meta">' + meta + (m && m.kept ? ' <span class="tag-kept" title="표시 항목을 내 설정대로 유지 중">내 설정</span>' : '') + '</div>' +
+          '<div class="meta">' + meta + (m && m.kept ? ' <span class="tag-kept" title="표시 항목을 내 설정대로 유지 중">내 설정</span>'
+            : m && m.customized ? ' <span class="tag-kept changed" title="표시 항목을 바꿈 (인게임 스케줄러와 다를 수 있음)">변경됨</span>' : '') + '</div>' +
           (m ? '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '') +
         '</div>' +
         (complete ? '<span class="badge-clear">ALL CLEAR</span>'

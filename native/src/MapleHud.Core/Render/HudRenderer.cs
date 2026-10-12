@@ -676,14 +676,16 @@ namespace MapleHud.Core.Render
                 Icon(Icons.WarnMark, cx, nameY + 4, 13, 16, _th.Danger, strokeWidth: 1.6f);
             }
             var meta = string.Join(" · ", new[] { card.Cls, card.World }.Where(v => !string.IsNullOrEmpty(v)));
-            float tagW = m != null && m.Kept ? Width("내 설정", 700, 9.5f) + 10 : 0;
+            // 인게임 스케줄러와 다르게 보이는 캐릭터 표시: 유지 중이면 "내 설정", 항목을 바꿨으면 "변경됨"
+            string tag = m == null ? null : m.Kept ? "내 설정" : m.Customized ? "변경됨" : null;
+            float tagW = tag != null ? Width(tag, 700, 9.5f) + 10 : 0;
             float mw = Text(Ellipsize(meta, Math.Max(20, avail - (tagW > 0 ? tagW + 6 : 0)), 400, 11.5f), wx, nameY + 22, 16, 400, 11.5f, _th.Text2);
-            if (tagW > 0)
+            if (tag != null)
             {
-                // 표시 항목을 유지 중인 캐릭터
                 var tr = new SKRect(wx + mw + (mw > 0 ? 6 : 0), nameY + 24, wx + mw + (mw > 0 ? 6 : 0) + tagW, nameY + 36);
-                RRect(tr, 6, Theme.A(_th.Accent, 0.12), Theme.A(_th.Accent, 0.55));
-                Text("내 설정", tr.Left + 5, tr.Top, 12, 700, 9.5f, _th.Accent, shadow: false);
+                if (m.Kept) RRect(tr, 6, Theme.A(_th.Accent, 0.12), Theme.A(_th.Accent, 0.55));
+                else RRect(tr, 6, Theme.White(0.06), Theme.White(0.22));
+                Text(tag, tr.Left + 5, tr.Top, 12, 700, 9.5f, m.Kept ? _th.Accent : _th.Text2, shadow: false);
             }
             if (m != null && _c != null)
             {
@@ -855,12 +857,12 @@ namespace MapleHud.Core.Render
 
         private string ChipLabel(ChipSpec s) => s.Boss || s.Item.IsBoss ? s.Item.Name : ShortName(s.Item.Name);
 
-        // 횟수형은 "2/3", 점수형은 점수("31,570"). 퀘스트와 편집 화면에서는 없음
+        // 인게임 스케줄러처럼: 횟수형·퀘스트는 "0/100", 점수형은 "31,570점". 편집 화면에서는 없음
         private static string CountText(ChipSpec s)
         {
             var it = s.Item;
-            if (s.Pick || it.Quest) return null;
-            if (it.Score) return it.Now > 0 ? it.Now.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) : null;
+            if (s.Pick) return null;
+            if (it.Score) return it.Now > 0 ? it.Now.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + "점" : null;
             return it.Max > 1 ? it.Now + "/" + it.Max : null;
         }
 

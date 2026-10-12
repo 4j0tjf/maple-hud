@@ -16,7 +16,7 @@ namespace MapleHud.Core
         public int Now;
         public int Max;
         public bool Quest;        // 횟수가 아니라 퀘스트 진행 상태로 완료를 판단
-        public bool Score;        // 최대치 없이 점수·횟수만 오는 항목 (길드 지하 수로 등). 한 번이라도 하면 완료
+        public bool Score;        // 점수만 쌓이는 항목 (길드 지하 수로·플래그 레이스). 인게임처럼 완료 없이 점수만 보여준다
         public bool Done;
         public bool Progress;
         public ResetKind Reset;
@@ -132,11 +132,13 @@ namespace MapleHud.Core
             var questState = J.StrOrNull(it, "quest_state");
             var type = J.Str(it, "type");
             bool isQuest = string.Equals(type, "quest", StringComparison.OrdinalIgnoreCase) || (max <= 0 && questState != null);
-            // 최대치가 0이면 점수형 (예: 길드 지하 수로 31570/0): 이번 주에 한 번이라도 했으면 완료
-            bool score = !isQuest && max <= 0;
-            // quest_state "2"(완료)는 종류와 상관없이 완료로 본다. 퀘스트는 횟수가 다 차도 완료 보고 전이면 미완료
-            bool done = questState == "2" || (!isQuest && (score ? now > 0 : now >= max));
             var name = J.Str(it, "content_name");
+            // 최대치가 0인 항목은 인게임 스케줄러와 같게:
+            //  - 길드 지하 수로·플래그 레이스(31570/0)는 점수만 보여주고 완료 체크가 없다
+            //  - 에픽 던전(5/0) 같은 나머지는 한 번이라도 했으면 완료
+            bool score = !isQuest && max <= 0 && IsScoreContent(name);
+            // quest_state "2"(완료)는 종류와 상관없이 완료로 본다. 퀘스트는 횟수가 다 차도 완료 보고 전이면 미완료
+            bool done = questState == "2" || (!isQuest && !score && (max > 0 ? now >= max : now > 0));
             return new SchedItem
             {
                 Key = group + ":" + name,
@@ -196,6 +198,9 @@ namespace MapleHud.Core
                 Reset = reset
             };
         }
+
+        /// <summary>점수만 쌓이고 인게임 스케줄러에서 완료 체크가 없는 콘텐츠 (길드 콘텐츠)</summary>
+        public static bool IsScoreContent(string name) => (name ?? "").StartsWith("[길드]");
 
         // 데이터가 마지막 초기화(+반영 지연) 이전 것이면 완료 상태를 해제
         private static bool IsStale(ResetKind reset, long fetchedAt, long now, long delay) =>

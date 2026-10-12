@@ -51,11 +51,13 @@
     var max = toNum(item.max_count);
     var questState = item.quest_state == null ? null : String(item.quest_state);
     var isQuest = String(item.type || '').toLowerCase() === 'quest' || (max <= 0 && questState !== null);
-    // 최대치가 0이면 점수형 (예: 길드 지하 수로 31570/0): 이번 주에 한 번이라도 했으면 완료
-    var score = !isQuest && max <= 0;
-    // quest_state "2"(완료)는 종류와 상관없이 완료로 본다. 퀘스트는 횟수가 다 차도 완료 보고 전이면 미완료
-    var done = questState === '2' || (!isQuest && (score ? now > 0 : now >= max));
     var name = String(item.content_name || '');
+    // 최대치가 0인 항목은 인게임 스케줄러와 같게:
+    //  - 길드 지하 수로·플래그 레이스(31570/0)는 점수만 보여주고 완료 체크가 없다
+    //  - 에픽 던전(5/0) 같은 나머지는 한 번이라도 했으면 완료
+    var score = !isQuest && max <= 0 && name.indexOf('[길드]') === 0;
+    // quest_state "2"(완료)는 종류와 상관없이 완료로 본다. 퀘스트는 횟수가 다 차도 완료 보고 전이면 미완료
+    var done = questState === '2' || (!isQuest && !score && (max > 0 ? now >= max : now > 0));
     return {
       key: group + ':' + name,
       group: group,

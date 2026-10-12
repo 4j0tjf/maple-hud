@@ -54,16 +54,19 @@ namespace MapleHud.Core.Tests
         }
 
         [Fact]
-        public void 점수만_오는_주간_항목은_한_번_하면_완료()
+        public void 최대치_0인_주간_항목은_인게임과_같게_판정()
         {
+            // 인게임: 에픽 던전 : 악몽선경(5/0)은 체크, [길드] 지하 수로(31570/0)는 "31570 점"만 있고 체크 없음
             var m = Scheduler.Normalize(Body(weekly: new object[]
             {
+                Content("에픽 던전 : 악몽선경", now: 5, max: 0), Content("에픽 던전 : 앵글러 컴퍼니", now: 0, max: 0),
                 Content("[길드] 지하 수로", now: 31570, max: 0), Content("[길드] 플래그 레이스", now: 0, max: 0),
                 Content("[길드] 주간 미션 포인트", now: 10, max: 10), Content("에르다 스펙트럼", now: 0, max: 1)
             }), Now - Min, Now, showAll: true);
-            Assert.Equal(new[] { true, false, true, false }, m.Weekly.Select(i => i.Done));
-            Assert.True(m.Weekly[0].Score);
-            Assert.False(m.Weekly[2].Score);
+            Assert.Equal(new[] { true, false, false, false, true, false }, m.Weekly.Select(i => i.Done));
+            Assert.True(m.Weekly[2].Score);
+            Assert.True(m.Weekly[2].Progress);
+            Assert.False(m.Weekly[0].Score);
         }
 
         [Fact]

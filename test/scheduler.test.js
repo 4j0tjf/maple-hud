@@ -225,7 +225,10 @@ test('실제 응답: 난이도별 보스와 점수형 주간 항목', () => {
     ]
   });
   const m = scheduler.normalize(b, NOW - MIN, NOW);
-  assert.deepEqual(m.weekly.map((it) => [it.name, it.done, it.score]), [['[길드] 지하 수로', true, true], ['[길드] 플래그 레이스', false, true]]);
+  // 인게임처럼 길드 점수 콘텐츠는 완료 체크 없이 점수만
+  assert.deepEqual(m.weekly.map((it) => [it.name, it.done, it.score, it.progress]), [['[길드] 지하 수로', false, true, true], ['[길드] 플래그 레이스', false, true, false]]);
+  const epic = scheduler.normalize(body({ weekly_contents: [content('에픽 던전 : 악몽선경', { now_count: 5, max_count: 0 })] }), NOW - MIN, NOW, { showAll: true });
+  assert.equal(epic.weekly[0].done, true);
   assert.deepEqual(m.boss.map((it) => [it.name, it.difficulty, it.done, it.group]), [
     ['루시드', '하드', true, 'bossWeekly'], ['카링', '이지', true, 'bossWeekly'], ['아카이럼', '노멀', false, 'bossDaily']
   ]);
